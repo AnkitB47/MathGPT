@@ -31,5 +31,6 @@ jobs:
 
     - name: Deploy to Elastic Beanstalk
       run: |
-        eb init MathsGPTApp --region eu-central-1 -p docker --platform docker --verbose
-        eb deploy mathsgpt-env
+        eb init MathsGPTApp --region eu-central-1
+        eb use mathsgpt-env || eb create mathsgpt-env
+        eb deploy
