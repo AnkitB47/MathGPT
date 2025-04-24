@@ -1,4 +1,4 @@
-name: Deploy MathsGPT
+name: Deploy to Elastic Beanstalk
 
 on:
   push:
@@ -8,33 +8,28 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Install Elastic Beanstalk CLI
+      run: |
+        pip install --upgrade awsebcli
 
-      - name: Build and push Docker image to DockerHub
-        run: |
-          docker build -t ${{ secrets.DOCKER_USERNAME }}/maths-gpt:latest .
-          docker push ${{ secrets.DOCKER_USERNAME }}/maths-gpt:latest
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: eu-central-1
 
-      - name: SSH to EC2 and deploy latest image
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USER }}
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            cd /home/ubuntu/maths-gpt || git clone https://github.com/${{ github.repository }} /home/ubuntu/maths-gpt && cd /home/ubuntu/maths-gpt
-            git pull
-            docker pull ${{ secrets.DOCKER_USERNAME }}/maths-gpt:latest
-            docker compose down || true
-            docker compose up -d
+    - name: Deploy to Elastic Beanstalk
+      run: |
+        eb init MathsGPTApp --region eu-central-1 -p docker --platform docker --verbose
+        eb deploy mathsgpt-env
