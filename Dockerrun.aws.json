@@ -1,12 +1,20 @@
 {
-  "AWSEBDockerrunVersion": 1,
+  "AWSEBDockerrunVersion": "1",
   "Image": {
-      "Name": "ankitb47/maths-gpt:cpu", 
-      "Update": "true"
+    "Name": "ankitb47/maths-gpt:cpu",
+    "Update": "true"
   },
   "Ports": [
-      {
-          "ContainerPort": 8501
-      }
+    {
+      "ContainerPort": "8501"
+    }
+  ],
+  "Logging": "/var/log/app",
+  "Entrypoint": "streamlit",
+  "Command": [
+    "run",
+    "app.py",
+    "--server.port=8501",
+    "--server.address=0.0.0.0"
   ]
 }

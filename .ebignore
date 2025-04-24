@@ -1,2 +1,8 @@
 docker-compose.yml
 local-dev/
+.git
+.vscode
+node_modules
+.idea
+.DS_Store
+*.log
