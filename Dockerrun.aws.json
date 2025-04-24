@@ -11,10 +11,5 @@
   ],
   "Logging": "/var/log/app",
   "Entrypoint": "streamlit",
-  "Command": [
-    "run",
-    "app.py",
-    "--server.port=8501",
-    "--server.address=0.0.0.0"
-  ]
+  "Command": "run app.py --server.port=8501 --server.address=0.0.0.0"
 }
