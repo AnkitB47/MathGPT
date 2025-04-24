@@ -1,12 +1,12 @@
 {
-  "AWSEBDockerrunVersion": "1",
+  "AWSEBDockerrunVersion": 1,
   "Image": {
-    "Name": "ankitb47/maths-gpt:cpu",
-    "Update": "true"
+      "Name": "ankitb47/maths-gpt:cpu", 
+      "Update": "true"
   },
   "Ports": [
-    {
-      "ContainerPort": 8501
-    }
+      {
+          "ContainerPort": 8501
+      }
   ]
 }
