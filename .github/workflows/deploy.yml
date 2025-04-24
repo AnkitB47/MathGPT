@@ -30,6 +30,6 @@ jobs:
 
       - name: Deploy to Elastic Beanstalk
         run: |
-          echo "y" | eb init MathsGPTApp --region eu-central-1 --platform "Docker"
-          eb use mathsgpt-env || eb create mathsgpt-env --timeout 20
+          echo "y" | eb init MathGPT --region eu-central-1 --platform "Docker"
+          eb use MathGPT-env || eb create MathGPT-env --timeout 20
           eb deploy --staged
