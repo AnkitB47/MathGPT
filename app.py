@@ -128,6 +128,10 @@ if prompt:
                     if deepseek_mode == "fine-tuned":
                         adapter_path = "output/qlora-deepseek/adapters"
                         config = PeftConfig.from_pretrained(adapter_path)
+                        
+                        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+                        print(f"🔥 Using device: {device}")
+                        
                         base_model = AutoModelForCausalLM.from_pretrained(
                             config.base_model_name_or_path,
                             device_map="auto",
@@ -146,13 +150,14 @@ if prompt:
                         eos_token_id = tokenizer.eos_token_id
                         
                         model.eval()
+                        model.to(device)  # push to device (CPU or GPU)
 
                         max_input_tokens = 2048
                         max_output_tokens = 2048
 
                         # Truncate chat history token-wise, not string-wise
                         chat_history = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state["messages"]])
-                        inputs = tokenizer(chat_history, return_tensors="pt", truncation=True, max_length=max_input_tokens).to(model.device)
+                        inputs = tokenizer(chat_history, return_tensors="pt", truncation=True, max_length=max_input_tokens).to(device)
                         
                         outputs = model.generate(
                             input_ids=inputs["input_ids"],

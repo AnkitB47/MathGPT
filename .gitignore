@@ -39,3 +39,8 @@ docker/
 node_modules/
 dist/
 build/
+
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
