@@ -1,0 +1,25 @@
+version: "3.9"
+services:
+  maths-gpt:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: maths-gpt
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+      - ./hf_cache:/app/hf_cache
+      - ./transformers_cache:/app/cache
+    environment:
+      PYTHONUNBUFFERED: 1
+      HF_HOME: /app/hf_cache
+      TRANSFORMERS_CACHE: /app/cache
+      NVIDIA_VISIBLE_DEVICES: all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    runtime: nvidia
+    restart: unless-stopped
