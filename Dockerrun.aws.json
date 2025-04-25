@@ -1,12 +1,10 @@
 {
   "AWSEBDockerrunVersion": 1,
   "Image": {
-    "Name": "AWS_ACCOUNT_ID.dkr.ecr.eu-north-1.amazonaws.com/maths-gpt-repository:cpu_light_optimised",
+    "Name": "<AWS_ACCOUNT_ID>.dkr.ecr.eu-north-1.amazonaws.com/maths-gpt-repository:cpu_light_optimised",
     "Update": "true"
   },
   "Ports": [
-    {
-      "ContainerPort": 8501
-    }
+    { "ContainerPort": 8501 }
   ]
 }
