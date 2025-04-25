@@ -2,38 +2,52 @@ name: Deploy to Elastic Beanstalk (CPU)
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Set up AWS CLI
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-north-1
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region:            eu-north-1
 
-      - name: Install Elastic Beanstalk CLI
-        run: |
-          sudo apt-get update
-          sudo apt-get install python3-pip
-          pip3 install awsebcli --upgrade --user
+    - name: Install EB CLI
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y python3-pip zip unzip
+        pip3 install --upgrade awsebcli --user
+        # Add ~/.local/bin to PATH so 'eb' is available:
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Login to ECR
-        run: |
-          aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-north-1.amazonaws.com
+    - name: Login to ECR
+      run: |
+        aws ecr get-login-password \
+          --region eu-north-1 \
+        | docker login \
+          --username AWS \
+          --password-stdin \
+          ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-north-1.amazonaws.com
 
-      - name: Deploy to Elastic Beanstalk
-        run: |
-          echo "y" | eb init MathGPT --region eu-north-1 --platform "Docker"
-          eb use MathGPT-env
-          echo "Using Docker image from ECR"
-          eb setenv ECR_IMAGE="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-north-1.amazonaws.com/maths-gpt-repository:cpu_light_optimised"
-          eb deploy --staged
+    - name: Patch Dockerrun.aws.json
+      run: |
+        sed -i \
+          -e "s|\${AWS_ACCOUNT_ID}|${{ secrets.AWS_ACCOUNT_ID }}|g" \
+          Dockerrun.aws.json
+
+    - name: Deploy
+      run: |
+        eb init MathGPT \
+          --region eu-north-1 \
+          --platform "Docker" \
+          --verbose \
+          <<< "y"
+        eb use MathGPT-env
+        eb deploy --staged

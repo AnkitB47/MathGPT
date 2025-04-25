@@ -1,4 +1,6 @@
 docker-compose-cpu.yml
+Dockerfile
+Dockerfile.gpu
 gpu-docker-compose.yml
 .git
 .vscode
