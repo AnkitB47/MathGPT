@@ -2,6 +2,8 @@ docker-compose-cpu.yml
 Dockerfile
 Dockerfile.gpu
 gpu-docker-compose.yml
+docker-compose.yml
+.dockerignore
 local_dev/
 .git
 .vscode

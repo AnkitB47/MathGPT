@@ -1,4 +1,4 @@
-name: Deploy to Elastic Beanstalk (CPU)
+name: Deploy to Elastic Beanstalk (ECR-only)
 
 on:
   push:
@@ -7,10 +7,12 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
 
-      - name: Configure AWS CLI
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id:     ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -20,22 +22,18 @@ jobs:
       - name: Install EB CLI
         run: |
           sudo apt-get update
-          sudo apt-get install -y python3-pip
+          sudo apt-get install -y python3-pip unzip
           pip3 install --upgrade --user awsebcli
+          export PATH=$HOME/.local/bin:$PATH
 
-      - name: Log into ECR
+      - name: Login to ECR
         run: |
-          aws ecr get-login-password \
-            --region eu-north-1 \
-          | docker login --username AWS \
-            --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-north-1.amazonaws.com
+          aws ecr get-login-password --region eu-north-1 \
+            | docker login --username AWS --password-stdin \
+              ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-north-1.amazonaws.com
 
-      - name: Template Dockerrun with your account
+      - name: Deploy via EB
         run: |
-          sed -i "s|<AWS_ACCOUNT_ID>|${{ secrets.AWS_ACCOUNT_ID }}|g" Dockerrun.aws.json
-
-      - name: Deploy to Elastic Beanstalk
-        run: |
-          echo "y" | eb init MathGPT --region eu-north-1 --platform "Docker"
-          eb use MathGPT-env
+          echo "y" | eb init MathGPT --region eu-north-1 --platform Docker
+          eb use    MathGPT-env
           eb deploy --staged
