@@ -18,7 +18,6 @@ transformers_cache/
 hf_cache/
 cache/
 datasets/
-deploy.zip/
 
 # Model weights
 *.pt

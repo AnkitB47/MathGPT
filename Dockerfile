@@ -1,8 +1,9 @@
-FROM ubuntu:22.04
+# Stage 1: Build image
+FROM python:3.10-slim AS build
 
 WORKDIR /app
 
-# Environment variables
+# Set environment variables
 ENV TRANSFORMERS_CACHE=/app/cache \
     HF_HOME=/app/hf_cache \
     PYTHONUNBUFFERED=1 \
@@ -12,32 +13,44 @@ ENV TRANSFORMERS_CACHE=/app/cache \
     PIP_RETRIES=25 \
     PATH="/venv/bin:$PATH"
 
-# Install system dependencies
+# Install system dependencies for building
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3-pip python3-dev python3.10-venv \
-    git build-essential cmake curl \
-    libgl1-mesa-glx libglib2.0-0 ca-certificates software-properties-common \
+    build-essential curl ca-certificates libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set up virtual environment and pip
+# Set up virtual environment and upgrade pip
 RUN python3 -m venv /venv && \
-    . /venv/bin/activate && \
-    pip install --upgrade pip && \
-    pip config set global.timeout 1000 && \
-    pip config set global.retries 25
+    /venv/bin/pip install --upgrade pip
 
-# Install PyTorch with fallback (GPU version first, fallback to CPU)
-RUN /venv/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118 || \
-    /venv/bin/pip install torch torchvision torchaudio
+# Install PyTorch (CPU version)
+RUN /venv/bin/pip install torch torchvision torchaudio --no-cache-dir
 
-# Install app requirements
+# Install app dependencies
 COPY requirements.txt .
 RUN /venv/bin/pip install -r requirements.txt
 
-# Copy source code
+# Stage 2: Runtime image
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Copy the virtual environment from the build stage
+COPY --from=build /venv /venv
+
+# Copy the rest of the application code
 COPY . .
 
-# Expose port for Streamlit
+# Set environment variables
+ENV TRANSFORMERS_CACHE=/app/cache \
+    HF_HOME=/app/hf_cache \
+    PYTHONUNBUFFERED=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=off \
+    PIP_DEFAULT_TIMEOUT=1000 \
+    PIP_RETRIES=25 \
+    PATH="/venv/bin:$PATH"
+
+# Expose the port for Streamlit
 EXPOSE 8501
 
 # Run Streamlit

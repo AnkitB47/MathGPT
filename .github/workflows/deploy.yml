@@ -13,23 +13,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
-
-      - name: Install Elastic Beanstalk CLI
-        run: pip install --upgrade awsebcli
-
-      - name: Configure AWS credentials
+      - name: Set up AWS CLI
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-north-1
 
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-north-1.amazonaws.com
+
       - name: Deploy to Elastic Beanstalk
         run: |
           echo "y" | eb init MathGPT --region eu-north-1 --platform "Docker"
-          eb use MathGPT-env || eb create MathGPT-env --timeout 20
+          eb use MathGPT-env
+          echo "Using Docker image from ECR"
+          eb setenv ECR_IMAGE="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-north-1.amazonaws.com/maths-gpt-repository:cpu_light_optimised"
           eb deploy --staged
