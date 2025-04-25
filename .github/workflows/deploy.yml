@@ -20,6 +20,12 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-north-1
 
+      - name: Install Elastic Beanstalk CLI
+        run: |
+          curl -s https://s3.amazonaws.com/elasticbeanstalk-cli-resources/aws-elasticbeanstalk-cli.zip -o /tmp/aws-elasticbeanstalk-cli.zip
+          unzip /tmp/aws-elasticbeanstalk-cli.zip -d /tmp
+          sudo /tmp/ebcli-installer/ebcli-setup.py install
+
       - name: Login to ECR
         run: |
           aws ecr get-login-password --region eu-north-1 | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.eu-north-1.amazonaws.com
