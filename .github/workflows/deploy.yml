@@ -22,9 +22,9 @@ jobs:
 
       - name: Install Elastic Beanstalk CLI
         run: |
-          curl -s https://s3.amazonaws.com/elasticbeanstalk-cli-resources/aws-elasticbeanstalk-cli.zip -o /tmp/aws-elasticbeanstalk-cli.zip
-          unzip /tmp/aws-elasticbeanstalk-cli.zip -d /tmp
-          sudo /tmp/ebcli-installer/ebcli-setup.py install
+          sudo apt-get update
+          sudo apt-get install python3-pip
+          pip3 install awsebcli --upgrade --user
 
       - name: Login to ECR
         run: |
