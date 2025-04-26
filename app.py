@@ -1,5 +1,5 @@
-import streamlit as st
 import os
+import streamlit as st
 from langchain_groq import ChatGroq
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
@@ -20,7 +20,7 @@ st.markdown("""
 Ask **complex math**, **reasoning**, or **coding** questions. Select an LLM model and get step-by-step solutions.
 """)
 
-# Sidebar - Mode selection and keys
+# Sidebar - Mode selection
 mode = st.sidebar.radio("Choose Mode", ["General Assistant", "Coding Assistant"])
 
 # ---------------------- GENERAL ASSISTANT ----------------------
@@ -35,7 +35,6 @@ if mode == "General Assistant":
         "gemma2-9b-it",
         "deepseek-r1-distill-llama-70b"
     ])
-
     llm = ChatGroq(model=selected_model, groq_api_key=groq_api_key, streaming=True)
 
     # Wikipedia Tool
@@ -100,6 +99,9 @@ elif mode == "Coding Assistant":
     # HF_TOKEN is provided via environment in production (Cloud Run, GH Actions)
     hf_token = os.environ.get("HF_TOKEN")
     deepseek_mode = st.sidebar.selectbox("⚙️ DeepSeek Mode", ["chat", "completion", "fine-tuned"])
+    if deepseek_mode != "fine-tuned" and not hf_token:
+        st.warning("Hugging Face token not found. Please set HF_TOKEN as env var.")
+        st.stop()
 
 # ---------------------- Chat Memory ----------------------
 if "messages" not in st.session_state:
@@ -107,13 +109,13 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": "Hi! I'm your advanced assistant for solving math, logic, and code problems. Ask away!"}
     ]
 
-for msg in st.session_state.messages:
+for msg in st.session_state["messages"]:
     st.chat_message(msg["role"]).write(msg["content"])
 
 prompt = st.chat_input("Ask me a math, logic or coding problem...")
 
 if prompt:
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    st.session_state["messages"].append({"role": "user", "content": prompt})
     st.chat_message("user").write(prompt)
 
     with st.chat_message("assistant"):
@@ -122,14 +124,10 @@ if prompt:
         if mode == "Coding Assistant":
             with st.spinner("Generating code with DeepSeek..."):
                 try:
-                    # Fine-tuned model chat-style inference inside "Coding Assistant" section
                     if deepseek_mode == "fine-tuned":
                         adapter_path = "output/qlora-deepseek/adapters"
                         config = PeftConfig.from_pretrained(adapter_path)
-                        
                         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-                        print(f"🔥 Using device: {device}")
-                        
                         base_model = AutoModelForCausalLM.from_pretrained(
                             config.base_model_name_or_path,
                             device_map="auto",
@@ -138,15 +136,14 @@ if prompt:
                         )
                         model = PeftModel.from_pretrained(base_model, adapter_path)
                         tokenizer = AutoTokenizer.from_pretrained(config.base_model_name_or_path)
-                        
                         # Fix for missing eos_token
                         if tokenizer.eos_token is None:
                             tokenizer.eos_token = tokenizer.pad_token or "</s>"
-                        
+
                         # Ensure pad_token_id and eos_token_id are defined
                         pad_token_id = tokenizer.pad_token_id or tokenizer.eos_token_id
                         eos_token_id = tokenizer.eos_token_id
-                        
+
                         model.eval()
                         model.to(device)  # push to device (CPU or GPU)
 
@@ -163,24 +160,21 @@ if prompt:
                             do_sample=True,
                             temperature=0.7,
                             top_p=0.95,
-                            pad_token_id=tokenizer.eos_token_id,
-                            eos_token_id=tokenizer.eos_token_id
+                            pad_token_id=eos_token_id,
+                            eos_token_id=eos_token_id
                         )
-                        
                         response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-                        response = response.split("assistant:", 1)[-1].strip()  # Remove the repeated prompt if any
-                        response = f"```python\n{response}\n```"
-
+                        response = response.split("assistant:", 1)[-1].strip()  # Remove repeated prompt
+                        response = f"```python\n{response}\n````
                     else:
                         response = generate_code_response(
                             prompt=prompt,
                             hf_token=hf_token,
-                            model_choice=coding_model,
+                            model_choice="deepseek-ai/deepseek-coder-1.3b-instruct",
                             mode=deepseek_mode
                         )
                         if deepseek_mode == "completion":
                             response = f"```python\n{response.strip()}\n```"
-
                 except Exception as e:
                     response = f"❌ Error generating code: {str(e)}"
 
@@ -190,9 +184,9 @@ if prompt:
             except Exception as e:
                 response = f"❌ Error: {str(e)}"
 
-        st.session_state.messages.append({"role": "assistant", "content": response})
+        st.session_state["messages"].append({"role": "assistant", "content": response})
         st.write(response)
-        
+
         # ── clean up GPU & Python memory after each response ──
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
