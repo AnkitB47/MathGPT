@@ -31,7 +31,7 @@ jobs:
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy maths-gpt \
-            --image docker.io/ankitb47/maths-gpt:cpu_light_optimised \
+            --image docker.io/ankitb47/maths-gpt:cpu_light_optimized \
             --platform managed \
             --region ${{ secrets.GCP_REGION }} \
             --service-account cloud-run-deployer@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
