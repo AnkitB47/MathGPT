@@ -10,6 +10,7 @@ from coding_agent import generate_code_response
 from peft import PeftModel, PeftConfig
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
+import gc
 
 # ---------------------- UI SETUP ----------------------
 st.set_page_config(page_title="🤖 Math, Logic & Code Assistant", page_icon="🧠")
@@ -194,3 +195,8 @@ if prompt:
 
         st.session_state.messages.append({"role": "assistant", "content": response})
         st.write(response)
+        
+        # ── clean up GPU & Python memory after each response ──
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
