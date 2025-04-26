@@ -30,9 +30,10 @@ jobs:
 
       - name: Deploy to Cloud Run
         run: |
+          gcloud config set run/region ${{ secrets.GCP_REGION }}
           gcloud run deploy maths-gpt \
-            --image docker.io/ankitb47/maths-gpt:cpu_light_optimized \
+            --image=docker.io/ankitb47/maths-gpt:cpu_light_optimised \
             --platform managed \
-            --region ${{ secrets.GCP_REGION }} \
-            --service-account cloud-run-deployer@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
-            --allow-unauthenticated
+            --service-account=cloud-run-deployer@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --allow-unauthenticated \
+            --port 8501
