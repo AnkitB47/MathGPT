@@ -18,6 +18,7 @@ transformers_cache/
 hf_cache/
 cache/
 datasets/
+local_dev/
 
 # Model weights
 *.pt
@@ -34,6 +35,7 @@ datasets/
 *.iso
 docker/
 .docker/
+.dockerignore
 
 # Node/Frontend (just in case)
 node_modules/
