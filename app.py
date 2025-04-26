@@ -165,7 +165,7 @@ if prompt:
                         )
                         response = tokenizer.decode(outputs[0], skip_special_tokens=True)
                         response = response.split("assistant:", 1)[-1].strip()  # Remove repeated prompt
-                        response = f"```python\n{response}\n````
+                        response = f"```python\n{response}\n````"
                     else:
                         response = generate_code_response(
                             prompt=prompt,
