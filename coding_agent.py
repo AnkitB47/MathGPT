@@ -4,19 +4,22 @@ import streamlit as st
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from huggingface_hub import snapshot_download
 
-MODEL_DIR = os.path.join(os.getcwd(), "coding_agent_model")
+MODEL_DIR = os.path.join(os.getcwd(), "model_cache")
+_repo = "deepseek-ai/deepseek-coder-1.3b-instruct"
+_download_lock = threading.Lock()
 
 @st.cache_resource(show_spinner=False)
-def download_model(hf_token: str):
-    deepseek_path = os.path.join(MODEL_DIR, "deepseek-ai--deepseek-coder-1.3b-instruct")
-
-    if not os.path.exists(deepseek_path):
-        snapshot_download(
-            repo_id="deepseek-ai/deepseek-coder-1.3b-instruct",
-            local_dir=deepseek_path,
-            token=hf_token
-        )
-    return deepseek_path
+def download_model():
+    hf_token = os.environ["HF_TOKEN"]
+    target = os.path.join(MODEL_DIR, _repo.replace("/", "__"))
+    with _download_lock:
+        if not os.path.isdir(target):
+            snapshot_download(
+                repo_id=_repo,
+                cache_dir=MODEL_DIR,
+                token=hf_token
+            )
+    return target
 
 @st.cache_resource(show_spinner=False)
 def load_deepseek(hf_token: str):
@@ -34,7 +37,7 @@ history = []
 
 def generate_code_response(prompt: str, model_choice: str, hf_token: str, mode: str = "chat") -> str:
     try:
-        if model_choice.lower() == "deepseek-coder-1.3b-instruct":
+        if model_choice.lower() == "deepseek-ai/deepseek-coder-1.3b-instruct":
             tokenizer, model = load_deepseek(hf_token)
 
             if mode == "chat":
