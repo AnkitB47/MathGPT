@@ -100,9 +100,6 @@ elif mode == "Coding Assistant":
     # HF_TOKEN is provided via environment in production (Cloud Run, GH Actions)
     hf_token = os.environ.get("HF_TOKEN")
     deepseek_mode = st.sidebar.selectbox("⚙️ DeepSeek Mode", ["chat", "completion", "fine-tuned"])
-    # if deepseek_mode != "fine-tuned" and not hf_token:
-    #     st.warning("Hugging Face token not found. Please set HF_TOKEN as env var.")
-    #     st.stop()
 
 # ---------------------- Chat Memory ----------------------
 if "messages" not in st.session_state:
