@@ -1,4 +1,5 @@
 import streamlit as st
+import os
 from langchain_groq import ChatGroq
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
@@ -21,19 +22,19 @@ Ask **complex math**, **reasoning**, or **coding** questions. Select an LLM mode
 
 # Sidebar - Mode selection and keys
 mode = st.sidebar.radio("Choose Mode", ["General Assistant", "Coding Assistant"])
-hf_token = st.sidebar.text_input("🔑 Hugging Face Token (for Coding Models)", type="password")
-groq_api_key = st.sidebar.text_input("🔑 Groq API Key (for General Assistant)", type="password")
 
 # ---------------------- GENERAL ASSISTANT ----------------------
 if mode == "General Assistant":
+    groq_api_key = st.sidebar.text_input("🔑 Groq API Key (for General Assistant)", type="password")
+    if not groq_api_key:
+        st.warning("Please enter your Groq API key to continue.")
+        st.stop()
+
     selected_model = st.sidebar.selectbox("🤖 Choose LLM Model", [
         "llama3-70b-8192",
         "gemma2-9b-it",
         "deepseek-r1-distill-llama-70b"
     ])
-    if not groq_api_key:
-        st.warning("Please enter your Groq API key to continue.")
-        st.stop()
 
     llm = ChatGroq(model=selected_model, groq_api_key=groq_api_key, streaming=True)
 
@@ -96,13 +97,12 @@ Answer:
 
 # ---------------------- CODING ASSISTANT ----------------------
 elif mode == "Coding Assistant":
+    # HF_TOKEN is provided via environment in production (Cloud Run, GH Actions)
+    hf_token = os.environ.get("HF_TOKEN")
     deepseek_mode = st.sidebar.selectbox("⚙️ DeepSeek Mode", ["chat", "completion", "fine-tuned"])
-    coding_model = "deepseek-ai/deepseek-coder-1.3b-instruct"
-
-
-    if not hf_token and deepseek_mode != "fine-tuned":
-        st.warning("Please enter your Hugging Face token for coding assistant.")
-        st.stop()
+    # if deepseek_mode != "fine-tuned" and not hf_token:
+    #     st.warning("Hugging Face token not found. Please set HF_TOKEN as env var.")
+    #     st.stop()
 
 # ---------------------- Chat Memory ----------------------
 if "messages" not in st.session_state:
