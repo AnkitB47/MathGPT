@@ -79,7 +79,7 @@ math_tool = Tool(
 reasoning_prompt = PromptTemplate(
     input_variables=["question"],
     template="""
-You are a super-intelligent agent capable of solving math, logical reasoning, aptitude and coding tasks.
+You are a super-intelligent agent capable of solving math, logic and programming tasks.
 You must:
 - Avoid unsupported code execution.
 - Prefer symbolic math and algebraic simplification.
