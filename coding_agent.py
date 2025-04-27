@@ -1,4 +1,5 @@
 import os
+import threading
 import torch
 import streamlit as st
 from transformers import AutoTokenizer, AutoModelForCausalLM
@@ -22,14 +23,14 @@ def download_model():
     return target
 
 @st.cache_resource(show_spinner=False)
-def load_deepseek(hf_token: str):
-    model_path = download_model(hf_token)
+def load_deepseek():
+    model_path = download_model()
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
         trust_remote_code=True,
         torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32
-    ).cuda()
+    ).to("cuda" if torch.cuda.is_available() else "cpu")
     return tokenizer, model
 
 # Global chat history
@@ -37,14 +38,25 @@ history = []
 
 def generate_code_response(prompt: str, model_choice: str, hf_token: str, mode: str = "chat") -> str:
     try:
-        if model_choice.lower() == "deepseek-ai/deepseek-coder-1.3b-instruct":
-            tokenizer, model = load_deepseek(hf_token)
+        lc = model_choice.lower()
+        if "deepseek-coder-1.3b-instruct" in lc:
+            tokenizer, model = load_deepseek()
 
             if mode == "chat":
-                messages = history + [{"role": "user", "content": prompt}]
-                inputs = tokenizer.apply_chat_template(messages, add_generation_prompt=True, return_tensors="pt").to(model.device)
-                outputs = model.generate(inputs, max_new_tokens=512, do_sample=False, top_k=50, top_p=0.95, num_return_sequences=1, eos_token_id=tokenizer.eos_token_id)
-                reply = tokenizer.decode(outputs[0][len(inputs[0]):], skip_special_tokens=True)
+                inputs = tokenizer.apply_chat_template(
+                    history + [{"role":"user","content":prompt}],
+                    add_generation_prompt=True,
+                    return_tensors="pt"
+                ).to(model.device)
+                outputs = model.generate(
+                    inputs["input_ids"],
+                    max_new_tokens=512,
+                    do_sample=False,
+                    top_k=50,
+                    top_p=0.95,
+                    eos_token_id=tokenizer.eos_token_id
+                )
+                reply = tokenizer.decode(outputs[0][len(inputs["input_ids"]):], skip_special_tokens=True)
 
             elif mode == "completion":
                 inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
@@ -55,10 +67,12 @@ def generate_code_response(prompt: str, model_choice: str, hf_token: str, mode: 
                 raise ValueError("Invalid mode. Use 'chat' or 'completion'.")
 
         else:
-            raise ValueError("Invalid model choice. Only DeepSeek is supported.")
+            # allow any other string containing “deepseek” in the future
+            raise ValueError(f"Invalid model choice {model_choice!r}. Only DeepSeek is supported.")
 
-        history.append({"role": "user", "content": prompt})
-        history.append({"role": "assistant", "content": reply})
+        # update chat history
+        history.append({"role":"user","content":prompt})
+        history.append({"role":"assistant","content":reply})
         return reply
 
     except Exception as e:
