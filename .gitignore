@@ -1,49 +1,39 @@
-# Virtual environments
-qlora-env/
-
-# CUDNN archive (not needed for inference)
-cudnn-linux-x86_64-8.6.0.163_cuda11-archive/
-
-# Full base model - pulled from HF
-coding_agent_model/
-
-# PEFT training checkpoint (huge)
-output/qlora-deepseek/checkpoint-*/
-
-# Caches
-__pycache__/
-*.log
+# ── Secrets & local configs
 .env
-transformers_cache/
+key.json
+
+# ── Python caches
+__pycache__/
+*.pyc
+*.log
+
+# ── Virtual envs
+qlora-env/
+venv/
+.venv/
+
+# ── HuggingFace / LangChain caches
 hf_cache/
+transformers_cache/
 cache/
 datasets/
-GPU_codingassistant/
 
-# Model weights
+# ── Large outputs / checkpoints
+output/
+GPU_codingassistant/
 *.pt
 *.bin
 *.ckpt
 *.safetensors
 
-# But KEEP adapters (needed for inference!)
-# !output/qlora-deepseek/adapters/**
-
-# Docker junk
-*.tar
-*.img
-*.iso
-docker/
-.docker/
+# ── Docker junk & compose files (we keep these in Git)
+Dockerfile*
 .dockerignore
+docker-compose*.yml
+.docker/
 
-# Node/Frontend (just in case)
+# ── IDE / Frontend
+.vscode/
 node_modules/
 dist/
 build/
-
-# Elastic Beanstalk Files
-.elasticbeanstalk/*
-!.elasticbeanstalk/*.cfg.yml
-!.elasticbeanstalk/*.global.yml
-key.json

@@ -35,7 +35,7 @@ jobs:
         run: |
           gcloud config set run/region ${{ secrets.GCP_REGION }}
           gcloud run deploy maths-gpt \
-            --image=docker.io/ankitb47/maths-gpt:cpu_light_optimized \
+            --image=docker.io/ankitb47/maths-gpt:general_v1 \
             --platform managed \
             --memory 2Gi \
             --cpu 2 \
