@@ -18,7 +18,7 @@ transformers_cache/
 hf_cache/
 cache/
 datasets/
-local_dev/
+GPU_codingassistant/
 
 # Model weights
 *.pt
@@ -27,7 +27,7 @@ local_dev/
 *.safetensors
 
 # But KEEP adapters (needed for inference!)
-!output/qlora-deepseek/adapters/**
+# !output/qlora-deepseek/adapters/**
 
 # Docker junk
 *.tar
