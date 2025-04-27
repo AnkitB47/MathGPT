@@ -1,0 +1,30 @@
+# git + CI
+.git
+.github
+
+# local caches, mounts, venvs
+venv
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.log
+hf_cache
+transformers_cache
+cache
+output
+local-dev
+eb-deploy
+
+# Terraform, VSCode, ZIPs
+.terraform
+terraform
+*.tfstate*
+.vscode
+*.zip
+
+# Docker‐gpu files, old manifests
+Dockerfile.gpu
+docker-compose*.yml
+gpu-docker-compose.yml
+deploy.zip
