@@ -1,0 +1,49 @@
+# .github/workflows/gpu-deploy.yml
+name: Deploy GPU Assistant
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'coding-assistant/**'
+      - 'terraform/**'   # Redeploy if infra changes
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    needs: terraform            # depends on terraform-deploy.yml
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      REGION:     ${{ secrets.GCP_REGION }}
+      CLUSTER:    mathsgpt-gpu-cluster
+      NAMESPACE:  gpu-assistant
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: GCP Auth
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v1
+        with:
+          cluster_name: ${{ env.CLUSTER }}
+          location:     ${{ env.REGION }}
+          credentials:  ${{ secrets.GCP_SA_KEY }}
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace ${{ env.NAMESPACE }} --dry-run=client -o yaml \
+            | kubectl apply -f -
+
+      - name: Deploy GPU resources
+        run: |
+          kubectl apply -k coding-assistant/kubernetes/ -n ${{ env.NAMESPACE }}
+          kubectl rollout status deployment/coding-assistant -n ${{ env.NAMESPACE }} --timeout=300s
+          echo "→ LB IP:" \
+            "$(kubectl get svc coding-assistant -n ${{ env.NAMESPACE }} \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"

@@ -1,0 +1,15 @@
+# coding-assistant/kubernetes/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: coding-assistant
+  annotations:
+    cloud.google.com/load-balancer-type: "External"
+spec:
+  selector:
+    app: mathsgpt-gpu
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8501
+  type: LoadBalancer

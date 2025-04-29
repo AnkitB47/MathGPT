@@ -1,39 +1,57 @@
-# ── Secrets & local configs
+# ── Secrets & local configs ─────────────────────────
 .env
 key.json
+mathsgpt-deployer-key.json
 
-# ── Python caches
+# ── Python caches & logs ────────────────────────────
 __pycache__/
-*.pyc
+*.py[cod]
 *.log
 
-# ── Virtual envs
-qlora-env/
+# ── Virtual environments ────────────────────────────
 venv/
 .venv/
+qlora-env/
 
-# ── HuggingFace / LangChain caches
+# ── HF / LangChain caches & large data ──────────────
 hf_cache/
 transformers_cache/
 cache/
 datasets/
 
-# ── Large outputs / checkpoints
+# ── Model outputs & checkpoints ─────────────────────
 output/
-GPU_codingassistant/
+coding_assistant_model/
 *.pt
 *.bin
 *.ckpt
 *.safetensors
 
-# ── Docker junk & compose files (we keep these in Git)
-Dockerfile*
-.dockerignore
-docker-compose*.yml
-.docker/
+# ── GPU scratch & CUDNN artifacts ──────────────────
+cudnn-linux-*
 
-# ── IDE / Frontend
+# ── IDE & node.js ──────────────────────────────────
 .vscode/
 node_modules/
 dist/
 build/
+
+# ── Docker tooling files ────────────────────────────
+.docker/
+docker-compose*.yml
+*.img
+*.tar
+*.iso
+
+# ── Terraform state & caches ────────────────────────
+# keep your .tf files, but ignore all the local bits
+**/.terraform/ 
+**/*.tfstate
+**/*.tfstate.backup
+**/.terraform.lock.hcl
+
+# ── (Optional) backup of local state from reset-infra.sh ──
+tf_state_backup/
+
+# ── But: We *do* want the fine-tuned adapters for GPU assistant ──
+!coding-assistant/output/qlora-deepseek/adapters/**

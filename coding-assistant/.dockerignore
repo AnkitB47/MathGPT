@@ -1,0 +1,36 @@
+# Python caches and venv
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# HuggingFace & model caches
+coding_agent_model/
+hf_cache/
+cache/
+transformers_cache/
+
+# PEFT adapters, snapshots
+output/
+*.pt
+*.bin
+*.ckpt
+*.safetensors
+
+# ── But: Include only the adapters subfolder from that output
+!output/qlora-deepseek/adapters/**
+
+# Streamlit, logs, env files
+*.log
+.env
+
+# Dockerfiles, local build artifacts
+Dockerfile*
+docker-compose*.yml
+
+# GCP / AWS key files
+*.json
+
+# Terraform / VSCode / Misc
+terraform/
+.vscode/

@@ -1,45 +1,36 @@
-# ── Don’t send EB configs into Docker
-.elasticbeanstalk/
-
-# ── Git metadata
+# ── Git data & CI configs ──────────────────────────
 .git/
 .gitignore
-
-# ── Local secrets & keys
-.env
+.github/
 key.json
+terraform/
 
-# ── Python / project caches
+# ── Python caches & venvs ──────────────────────────
 __pycache__/
-*.pyc
-*.log
-
-# ── Virtual envs & tooling
-qlora-env/
-venv/
+*.py[cod]
 .venv/
-.vscode/
+venv/
+qlora-env/
 
-# ── HF / LangChain caches
+# ── HF & LangChain caches ──────────────────────────
 hf_cache/
 transformers_cache/
 cache/
 datasets/
 
-# ── Large outputs
+# ── Model checkpoints & large outputs ──────────────
 output/
+coding_assistant_model/
 GPU_codingassistant/
 
-# ── Terraform infra (we track it in Git, but we don’t need it in the image)
-terraform/
+# ── IDE & local logs ───────────────────────────────
+.vscode/
+*.log
 
-# ── Docker tooling files
+# ── Docker build tooling ───────────────────────────
 .dockerignore
-Dockerfile*
 docker-compose*.yml
 .docker/
 
-# ── Frontend / Node
-node_modules/
-dist/
-build/
+# ── But: Include only the adapters subfolder from that output
+!coding-assistant/output/qlora-deepseek/adapters/**

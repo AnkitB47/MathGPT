@@ -1,0 +1,65 @@
+# Core AI & Transformers
+transformers
+tokenizers
+huggingface_hub
+datasets
+peft
+accelerate
+sentence-transformers
+triton
+bitsandbytes>=0.43.1
+
+# LangChain Stack
+langchain
+langchain-core
+langchain-community
+langchain-openai
+langchain-groq
+langchain-text-splitters
+langchain-huggingface
+langchain-chroma
+
+# Vector DBs
+chromadb
+faiss-cpu
+
+# File Parsing
+pypdf
+pymupdf
+beautifulsoup4
+bs4
+
+# Search & Metadata
+wikipedia
+arxiv
+unstructured
+youtube_transcript_api
+pytube
+duckduckgo_search
+
+# Database
+mysql-connector-python
+SQLAlchemy
+duckdb
+
+# Data
+pandas
+numexpr
+numpy
+
+# Streamlit & Web
+streamlit
+blinker
+cachetools
+validators
+python-dotenv
+ipykernel
+protobuf
+sympy
+click
+toml
+altair
+pydeck
+watchdog
+tornado
+gitpython

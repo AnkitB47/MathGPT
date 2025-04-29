@@ -1,0 +1,55 @@
+# .github/workflows/terraform-deploy.yml
+name: Terraform Deploy
+
+on:
+  push:
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          token_format: 'access_token'
+
+      - name: Install Terraform
+        uses: hashicorp/setup-terraform@v2
+
+      # ── Phase 1: infra ─────────────────────────────
+      - name: Terraform Init (infra)
+        working-directory: terraform/infra
+        run: |
+          terraform init -reconfigure \
+            -backend-config="bucket=${{ secrets.GCP_TF_STATE_BUCKET }}" \
+            -backend-config="prefix=terraform/state/infra"
+
+      - name: Terraform Apply (infra)
+        working-directory: terraform/infra
+        run: |
+          terraform apply -var-file="terraform.tfvars" -auto-approve
+
+      # ── Phase 2: apps ─────────────────────────────
+      - name: Terraform Init (apps)
+        working-directory: terraform/apps
+        run: |
+          terraform init -reconfigure \
+            -backend-config="bucket=${{ secrets.GCP_TF_STATE_BUCKET }}" \
+            -backend-config="prefix=terraform/state/apps"
+
+      - name: Terraform Apply (apps)
+        working-directory: terraform/apps
+        run: |
+          terraform apply -var-file="terraform.tfvars" -auto-approve
