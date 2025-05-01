@@ -56,7 +56,7 @@ resource "google_container_node_pool" "gpu_pool" {
   name     = "${var.gke_cluster_name}-gpu-pool"
 
   autoscaling {
-    min_node_count = 0
+    min_node_count = 1
     max_node_count = var.gke_gpu_max_nodes
   }
   node_locations = var.gke_gpu_zones

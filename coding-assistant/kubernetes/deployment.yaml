@@ -27,7 +27,7 @@ spec:
           effect: "NoSchedule"
       # schedule onto your un-tainted monitor-pool
       nodeSelector:
-        cloud.google.com/gke-nodepool: "monitor-pool"
+        cloud.google.com/gke-nodepool: "mathsgpt-gpu-cluster-gpu-pool"
         cloud.google.com/gke-accelerator: "nvidia-tesla-t4"
       containers:
         - name: coding-assistant
