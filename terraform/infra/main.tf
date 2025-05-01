@@ -3,6 +3,7 @@ provider "google" {
   region  = var.region
 }
 
+# If re-using an existing cluster, pull its data
 data "google_container_cluster" "existing" {
   count    = var.cluster_exists ? 1 : 0
   name     = var.gke_cluster_name
@@ -23,15 +24,34 @@ resource "google_container_cluster" "gpu" {
 
   node_config {
     machine_type = "e2-small"
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform"
-    ]
+    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
+  }
+}
+
+# A small un‐tainted pool for monitoring workloads
+resource "google_container_node_pool" "monitor_pool" {
+  name       = "monitor-pool"
+  cluster    = local.cluster_name
+  location   = var.region
+  node_count = 1
+
+  lifecycle {
+    ignore_changes = all
+  }
+
+  node_config {
+    machine_type = "n1-standard-2"
+  }
+
+  management {
+    auto_repair  = true
+    auto_upgrade = true
   }
 }
 
 resource "google_container_node_pool" "gpu_pool" {
   count    = var.cluster_exists ? 0 : 1
-  cluster  = var.cluster_exists ? data.google_container_cluster.existing[0].name : google_container_cluster.gpu[0].name
+  cluster  = local.cluster_name
   location = var.region
   name     = "${var.gke_cluster_name}-gpu-pool"
 
@@ -42,8 +62,8 @@ resource "google_container_node_pool" "gpu_pool" {
   node_locations = var.gke_gpu_zones
 
   node_config {
-    machine_type = var.gke_machine_type
-    oauth_scopes = [
+    machine_type   = var.gke_machine_type
+    oauth_scopes   = [
       "https://www.googleapis.com/auth/logging.write",
       "https://www.googleapis.com/auth/monitoring",
       "https://www.googleapis.com/auth/devstorage.read_only",
@@ -80,13 +100,16 @@ resource "google_container_node_pool" "gpu_pool" {
   }
 }
 
+locals {
+  cluster_name          = var.cluster_exists ? data.google_container_cluster.existing[0].name : google_container_cluster.gpu[0].name
+  cluster_endpoint      = var.cluster_exists ? data.google_container_cluster.existing[0].endpoint : google_container_cluster.gpu[0].endpoint
+  cluster_ca_certificate = var.cluster_exists ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate : google_container_cluster.gpu[0].master_auth[0].cluster_ca_certificate
+}
+
 output "cluster_endpoint" {
-  description = "GKE API server endpoint"
-  value       = var.cluster_exists ? data.google_container_cluster.existing[0].endpoint : google_container_cluster.gpu[0].endpoint
+  value = local.cluster_endpoint
 }
 
 output "cluster_ca_certificate" {
-  description = "Base64 CA cert for the cluster"
-  value       = var.cluster_exists ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate : google_container_cluster.gpu[0].master_auth[0].cluster_ca_certificate
+  value = local.cluster_ca_certificate
 }
-

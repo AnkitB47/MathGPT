@@ -29,6 +29,10 @@ GPU_K8S_DIR="coding-assistant/kubernetes"
 CLUSTER_NAME="mathsgpt-gpu-cluster"
 GPU_NAMESPACE="gpu-assistant"
 
+echo "⏳ Cleaning local Terraform state…"
+rm -rf $INFRA_DIR/.terraform* $APPS_DIR/.terraform*
+rm -f $INFRA_DIR/.terraform.lock.hcl $APPS_DIR/.terraform.lock.hcl
+
 # 1) Phase 1: infra (GKE + node pools)
 echo "🚧 Provisioning infra…"
 pushd "$INFRA_DIR" >/dev/null

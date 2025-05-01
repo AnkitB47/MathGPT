@@ -1,19 +1,22 @@
-# .github/workflows/general-deploy.yml
-name: Deploy General Assistant
+name: 🚀 Deploy General Assistant
 
 on:
   push:
     branches: [ main ]
     paths:
       - 'general-assistant/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
 
 jobs:
-  deploy:
+  deploy-general:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v1
@@ -25,10 +28,10 @@ jobs:
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
           install_components: beta
+          export_default_credentials: true
 
       - name: Configure region
-        run: |
-          gcloud config set run/region ${{ secrets.GCP_REGION }}
+        run: gcloud config set run/region ${{ secrets.GCP_REGION }}
 
       - name: Deploy to Cloud Run
         run: |
