@@ -174,23 +174,38 @@ resource "helm_release" "prom_stack" {
 
   wait            = true
   wait_for_jobs   = false
-  timeout         = 900
+  timeout         = 900  # 15m
 
-  # ── Put everything on GPU pool…
-  # (the pool name comes straight from infra output)
   values = [
     <<-EOF
     global:
+      imagePullSecrets: []
       nodeSelector:
         cloud.google.com/gke-nodepool: ${var.gke_cluster_name}-gpu-pool
       tolerations:
-        - key: nvidia.com/gpu
-          operator: Exists
-          effect: NoSchedule
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
+    prometheus:
+      prometheusSpec:
+        nodeSelector:
+          cloud.google.com/gke-nodepool: ${var.gke_cluster_name}-gpu-pool
+        tolerations:
+          - key: "nvidia.com/gpu"
+            operator: "Exists"
+            effect: "NoSchedule"
+    prometheusOperator:
+      admissionWebhooks:
+        enabled: false
+      nodeSelector:
+        cloud.google.com/gke-nodepool: ${var.gke_cluster_name}-gpu-pool
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
     EOF
   ]
 
-  # ── And the rest of  chart overrides ────────────────────────────
   set {
     name  = "grafana.service.type"
     value = "LoadBalancer"
@@ -198,10 +213,6 @@ resource "helm_release" "prom_stack" {
   set {
     name  = "grafana.adminPassword"
     value = "admin"
-  }
-  set {
-    name  = "prometheusOperator.admissionWebhooks.enabled"
-    value = "false"
   }
   set {
     name  = "prometheus.prometheusSpec.retention"
