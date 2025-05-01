@@ -174,20 +174,20 @@ resource "helm_release" "prom_stack" {
   timeout        = 900        // 15 minutes
 
   // ── force all pods onto var.gke_cluster_name (untainted) nodes:
+  # ── pin all pods onto your real GPU node-pool name ─────────
+  # (terraform var.gke_cluster_name == "mathsgpt-gpu-cluster", so this becomes "...=mathsgpt-gpu-cluster-gpu-pool")
   set {
     name  = "global.nodeSelector.cloud\\.google\\.com/gke-nodepool"
-    value = "var.gke_cluster_name"
-  }
-
-  set { 
-    name = "prometheusOperator.nodeSelector.cloud\\.google\\.com/gke-nodepool"
-    value = "var.gke_cluster_name" 
+    value = "${var.gke_cluster_name}-gpu-pool"
   }
   set { 
-    name = "prometheus.prometheusSpec.nodeSelector.cloud\\.google\\.com/gke-nodepool"
-    value = "var.gke_cluster_name" 
+    name  = "prometheusOperator.nodeSelector.cloud\\.google\\.com/gke-nodepool"
+    value = "${var.gke_cluster_name}-gpu-pool"
   }
-
+  set { 
+    name  = "prometheus.prometheusSpec.nodeSelector.cloud\\.google\\.com/gke-nodepool"
+    value = "${var.gke_cluster_name}-gpu-pool"
+  }
   set { 
     name = "grafana.service.type"
     value = "LoadBalancer" 
