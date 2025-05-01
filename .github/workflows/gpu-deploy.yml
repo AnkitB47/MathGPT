@@ -19,7 +19,7 @@ jobs:
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION:     ${{ secrets.GCP_REGION }}
-      CLUSTER:    mathsgpt-gpu-cluster
+      CLUSTER:    ${{ secrets.GKE_CLUSTER_NAME }}
       NAMESPACE:  gpu-assistant
 
     steps:
