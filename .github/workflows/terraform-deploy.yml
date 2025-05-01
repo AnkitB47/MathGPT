@@ -1,4 +1,4 @@
-name: 🛠 Terraform Deploy (clean-create)
+name: 🛠 Terraform Deploy
 
 on:
   push:
