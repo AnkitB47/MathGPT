@@ -19,7 +19,7 @@ jobs:
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION:     ${{ secrets.GCP_REGION }}
-      CLUSTER:    ${{ secrets.GCP_CLUSTER_NAME }}    # your GKE cluster name
+      CLUSTER:    ${{ secrets.GKE_CLUSTER_NAME }}    # your GKE cluster name
       NAMESPACE:  gpu-assistant
 
     steps:
