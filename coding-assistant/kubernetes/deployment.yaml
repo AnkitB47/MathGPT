@@ -1,4 +1,3 @@
-# coding-assistant/kubernetes/deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -21,14 +20,15 @@ spec:
         app: mathsgpt-gpu
     spec:
       serviceAccountName: mathsgpt-deployer
+      # tolerate the GPU-tainted nodes
       tolerations:
         - key: "nvidia.com/gpu"
           operator: "Exists"
           effect: "NoSchedule"
+      # schedule onto your un-tainted monitor-pool
       nodeSelector:
-        cloud.google.com/gke-nodepool: "<YOUR_NODE_POOL>"
+        cloud.google.com/gke-nodepool: "monitor-pool"
         cloud.google.com/gke-accelerator: "nvidia-tesla-t4"
-
       containers:
         - name: coding-assistant
           image: docker.io/ankitb47/maths-gpt:gpu_v1
