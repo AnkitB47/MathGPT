@@ -158,58 +158,65 @@ resource "helm_release" "prometheus_operator_crds" {
   timeout          = 600
 }
 
-// 6) Main kube-prometheus-stack, skipping CRDs, pinned to monitor‐pool
+// 6) Main kube-prometheus-stack, skipping CRDs,
+//    pinned to  GPU node-pool with tolerations
+// ────────────────────────────────────────────────────────────────────
 resource "helm_release" "prom_stack" {
-  depends_on    = [ helm_release.prometheus_operator_crds ]
-  name          = "kube-prometheus-stack"
-  repository    = "https://prometheus-community.github.io/helm-charts"
-  chart         = "kube-prometheus-stack"
-  version       = "45.0.0"
-  namespace     = kubernetes_namespace.monitoring.metadata[0].name
+  depends_on       = [ helm_release.prometheus_operator_crds ]
+  name             = "kube-prometheus-stack"
+  repository       = "https://prometheus-community.github.io/helm-charts"
+  chart            = "kube-prometheus-stack"
+  version          = "45.0.0"
+
+  namespace        = kubernetes_namespace.monitoring.metadata[0].name
   create_namespace = false
   skip_crds        = true
 
-  wait           = true
-  wait_for_jobs  = false      // don’t hang waiting for batch jobs
-  timeout        = 900        // 15 minutes
+  wait            = true
+  wait_for_jobs   = false
+  timeout         = 900
 
-  // ── force all pods onto your “monitor-pool” (untainted) nodes:
+  # ── Put everything on GPU pool…
+  # (the pool name comes straight from infra output)
+  values = [
+    <<-EOF
+    global:
+      nodeSelector:
+        cloud.google.com/gke-nodepool: ${data.terraform_remote_state.infra.outputs.cluster_name}-gpu-pool
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Exists
+          effect: NoSchedule
+    EOF
+  ]
+
+  # ── And the rest of  chart overrides ────────────────────────────
   set {
-    name  = "global.nodeSelector.cloud\\.google\\.com/gke-nodepool"
-    value = "monitor-pool"
+    name  = "grafana.service.type"
+    value = "LoadBalancer"
   }
-
-  set { 
-    name = "prometheusOperator.nodeSelector.cloud\\.google\\.com/gke-nodepool"
-    value = "monitor-pool" 
+  set {
+    name  = "grafana.adminPassword"
+    value = "admin"
   }
-  set { 
-    name = "prometheus.prometheusSpec.nodeSelector.cloud\\.google\\.com/gke-nodepool"
-    value = "monitor-pool" 
+  set {
+    name  = "prometheusOperator.admissionWebhooks.enabled"
+    value = "false"
   }
-
-  set { 
-    name = "grafana.service.type"
-    value = "LoadBalancer" 
+  set {
+    name  = "prometheus.prometheusSpec.retention"
+    value = "7d"
   }
-  set { 
-    name = "grafana.adminPassword"
-    value = "admin" 
+  set {
+    name  = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName"
+    value = "standard"
   }
-  set { 
-    name = "prometheus.prometheusSpec.retention"
-    value = "7d" 
+  set {
+    name  = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.accessModes[0]"
+    value = "ReadWriteOnce"
   }
-  set { 
-    name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName"
-    value = "standard" 
-  }
-  set { 
-    name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.accessModes[0]"
-    value = "ReadWriteOnce" 
-  }
-  set { 
-    name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage"
-    value = "50Gi" 
+  set {
+    name  = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage"
+    value = "50Gi"
   }
 }
