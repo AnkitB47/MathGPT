@@ -27,7 +27,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Authenticate
+      # 2️⃣ Authenticate to GCP
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v1
         with:
@@ -40,7 +40,7 @@ jobs:
           project_id:                  ${{ env.PROJECT_ID }}
           export_default_credentials:  true
 
-      # 4️⃣ Fetch the kubeconfig for your existing cluster
+      # 4️⃣ Fetch kubeconfig
       - name: Get GKE credentials
         uses: google-github-actions/get-gke-credentials@v1
         with:
@@ -52,10 +52,10 @@ jobs:
         run: |
           kubectl wait \
             --for=condition=Ready nodes \
-            --selector=cloud.google.com/gke-nodepool=${{ env.CLUSTER }}-gpu-pool \
+            --selector=cloud.google.com/gke-nodepool=${{ env.NODEPOOL }} \
             --timeout=10m
 
-      # 6️⃣ Create namespace (no-op if already exists)
+      # 6️⃣ Create namespace (idempotent)
       - name: Create namespace
         run: |
           kubectl create namespace ${{ env.NAMESPACE }} \
@@ -64,11 +64,14 @@ jobs:
       # 7️⃣ Deploy your GPU workloads
       - name: Deploy GPU resources
         run: |
+          # substitute in your Deployment
           sed -i "s|<YOUR_NODE_POOL>|${NODEPOOL}|g" coding-assistant/kubernetes/deployment.yaml
+
           kubectl apply -f coding-assistant/kubernetes/deployment.yaml \
             -n ${{ env.NAMESPACE }}
-          kubectl apply -f coding-assistant/kubernetes/service.yaml    \
+          kubectl apply -f coding-assistant/kubernetes/service.yaml \
             -n ${{ env.NAMESPACE }}
+
           kubectl rollout status deployment/coding-assistant \
             -n ${{ env.NAMESPACE }} --timeout=300s
 
@@ -77,5 +80,5 @@ jobs:
         run: |
           echo "GPU LB IP →" \
             $(kubectl get svc coding-assistant \
-              -n ${{ env.NAMESPACE }} \
-              -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+               -n ${{ env.NAMESPACE }} \
+               -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
