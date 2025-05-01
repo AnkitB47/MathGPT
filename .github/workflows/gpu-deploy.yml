@@ -1,11 +1,10 @@
 name: 🖥️ Deploy GPU Assistant
 
+# Trigger automatically when Terraform Deploy finishes, or manually if you want
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'coding-assistant/**'
-      - 'terraform/**'
+  workflow_run:
+    workflows: ["🛠 Terraform Deploy"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -16,7 +15,6 @@ jobs:
   deploy-gpu:
     name: Deploy GPU
     runs-on: ubuntu-latest
-    needs: terraform   # waits for terraform.yml
 
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
