@@ -28,27 +28,6 @@ resource "google_container_cluster" "gpu" {
   }
 }
 
-# A small un‐tainted pool for monitoring workloads
-resource "google_container_node_pool" "monitor_pool" {
-  name       = "monitor-pool"
-  cluster    = local.cluster_name
-  location   = var.region
-  node_count = 1
-
-  lifecycle {
-    ignore_changes = all
-  }
-
-  node_config {
-    machine_type = "n1-standard-2"
-  }
-
-  management {
-    auto_repair  = true
-    auto_upgrade = true
-  }
-}
-
 resource "google_container_node_pool" "gpu_pool" {
   count    = var.cluster_exists ? 0 : 1
   cluster  = local.cluster_name

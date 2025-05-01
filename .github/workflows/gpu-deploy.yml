@@ -46,7 +46,7 @@ jobs:
           kubectl get nodes --show-labels
           kubectl wait \
             --for=condition=Ready nodes \
-            --selector=cloud.google.com/gke-nodepool=${{ env.NODEPOOL }} \
+            --selector=cloud.google.com/gke-nodepool=${{ env.CLUSTER }}-gpu-pool \
             --timeout=10m
 
       - name: Create namespace
