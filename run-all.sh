@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-Run Terraform
-echo "→ Running Terraform…"
-gh workflow run "🛠 Terraform Deploy" --ref main
-gh run watch --exit-zero --workflow="🛠 Terraform Deploy"
+# Run Terraform
+# echo "→ Running Terraform…"
+# gh workflow run "🛠 Terraform Deploy" --ref main
+# gh run watch --exit-zero --workflow="🛠 Terraform Deploy"
 
 # Deploy the general assistant
 echo "→ Deploying General Assistant…"

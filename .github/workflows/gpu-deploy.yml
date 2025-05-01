@@ -16,9 +16,9 @@ jobs:
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION:     ${{ secrets.GCP_REGION }}
-      CLUSTER:    mathsgpt-gpu-cluster
+      CLUSTER:    ${{ secrets.GKE_CLUSTER_NAME }}
+      NODEPOOL:   mathsgpt-gpu-cluster-gpu-pool
       NAMESPACE:  gpu-assistant
-      GPU_POOL:   mathsgpt-gpu-cluster-gpu-pool
 
     steps:
       - uses: actions/checkout@v3
@@ -31,8 +31,8 @@ jobs:
       - name: Setup gcloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
-          project_id:                 ${{ env.PROJECT_ID }}
-          export_default_credentials: true
+          project_id: ${{ env.PROJECT_ID }}
+          install_components: beta
 
       - name: Get GKE credentials
         uses: google-github-actions/get-gke-credentials@v1
@@ -42,10 +42,11 @@ jobs:
 
       - name: Wait for GPU nodes
         run: |
-          # now that min_node_count=1, this will actually find GPU nodes
+          echo "→ GPU nodes ready?"
+          kubectl get nodes --show-labels
           kubectl wait \
             --for=condition=Ready nodes \
-            --selector=cloud.google.com/gke-nodepool=${GPU_POOL} \
+            --selector=cloud.google.com/gke-nodepool=${{ env.NODEPOOL }} \
             --timeout=10m
 
       - name: Create namespace
@@ -55,10 +56,9 @@ jobs:
 
       - name: Deploy GPU resources
         run: |
-          kubectl apply -f coding-assistant/kubernetes/deployment.yaml \
-            -n ${{ env.NAMESPACE }}
-          kubectl apply -f coding-assistant/kubernetes/service.yaml \
-            -n ${{ env.NAMESPACE }}
+          sed -i "s|<YOUR_NODE_POOL>|${NODEPOOL}|g" coding-assistant/kubernetes/deployment.yaml
+          kubectl apply -f coding-assistant/kubernetes/deployment.yaml -n ${{ env.NAMESPACE }}
+          kubectl apply -f coding-assistant/kubernetes/service.yaml    -n ${{ env.NAMESPACE }}
           kubectl rollout status deployment/coding-assistant \
             -n ${{ env.NAMESPACE }} --timeout=300s
 
