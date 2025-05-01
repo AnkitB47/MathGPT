@@ -182,7 +182,7 @@ resource "helm_release" "prom_stack" {
     <<-EOF
     global:
       nodeSelector:
-        cloud.google.com/gke-nodepool: ${data.terraform_remote_state.infra.outputs.cluster_name}-gpu-pool
+        cloud.google.com/gke-nodepool: ${var.gke_cluster_name}-gpu-pool
       tolerations:
         - key: nvidia.com/gpu
           operator: Exists
