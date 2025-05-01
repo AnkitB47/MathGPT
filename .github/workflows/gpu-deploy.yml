@@ -1,6 +1,6 @@
 name: 🖥️ Deploy GPU Assistant
 
-# Trigger automatically when Terraform Deploy finishes, or manually if you want
+# 1️⃣ Trigger after your Terraform run or manually
 on:
   workflow_run:
     workflows: ["🛠 Terraform Deploy"]
@@ -20,45 +20,62 @@ jobs:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION:     ${{ secrets.GCP_REGION }}
       CLUSTER:    ${{ secrets.GKE_CLUSTER_NAME }}
+      NODEPOOL:   ${{ secrets.GPU_NODEPOOL_NAME }}
       NAMESPACE:  gpu-assistant
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
+      # 2️⃣ Authenticate
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install gcloud SDK
+      # 3️⃣ Install & configure gcloud
+      - name: Setup gcloud SDK
         uses: google-github-actions/setup-gcloud@v1
         with:
-          project_id: ${{ env.PROJECT_ID }}
-          export_default_credentials: true
+          project_id:                  ${{ env.PROJECT_ID }}
+          export_default_credentials:  true
 
+      # 4️⃣ Fetch the kubeconfig for your existing cluster
       - name: Get GKE credentials
         uses: google-github-actions/get-gke-credentials@v1
         with:
           cluster_name: ${{ env.CLUSTER }}
           location:     ${{ env.REGION }}
 
+      # 5️⃣ Wait for your GPU node-pool to be Ready
+      - name: Wait for GPU nodes
+        run: |
+          kubectl wait \
+            --for=condition=Ready nodes \
+            --selector=cloud.google.com/gke-nodepool=${{ env.CLUSTER }}-gpu-pool \
+            --timeout=10m
+
+      # 6️⃣ Create namespace (no-op if already exists)
       - name: Create namespace
         run: |
           kubectl create namespace ${{ env.NAMESPACE }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
+      # 7️⃣ Deploy your GPU workloads
       - name: Deploy GPU resources
         run: |
+          sed -i "s|<YOUR_NODE_POOL>|${NODEPOOL}|g" coding-assistant/kubernetes/deployment.yaml
           kubectl apply -f coding-assistant/kubernetes/deployment.yaml \
-             -n ${{ env.NAMESPACE }}
-          kubectl apply -f coding-assistant/kubernetes/service.yaml \
-             -n ${{ env.NAMESPACE }}
+            -n ${{ env.NAMESPACE }}
+          kubectl apply -f coding-assistant/kubernetes/service.yaml    \
+            -n ${{ env.NAMESPACE }}
           kubectl rollout status deployment/coding-assistant \
             -n ${{ env.NAMESPACE }} --timeout=300s
 
+      # 8️⃣ Show the external IP
       - name: Show GPU LB IP
         run: |
           echo "GPU LB IP →" \
             $(kubectl get svc coding-assistant \
-               -n ${{ env.NAMESPACE }} \
-               -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+              -n ${{ env.NAMESPACE }} \
+              -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
