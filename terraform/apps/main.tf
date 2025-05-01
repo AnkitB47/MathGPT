@@ -168,6 +168,7 @@ resource "helm_release" "prom_stack" {
   namespace     = kubernetes_namespace.monitoring.metadata[0].name
   create_namespace = false
   skip_crds        = true
+  cleanup_on_fail = true
 
   wait           = true
   wait_for_jobs  = false      // don’t hang waiting for batch jobs
