@@ -14,7 +14,7 @@ env:
   STATE_BUCKET: ${{ secrets.GCP_TF_STATE_BUCKET }}
   PROJECT_ID:   ${{ secrets.GCP_PROJECT_ID }}
   REGION:       ${{ secrets.GCP_REGION }}
-  CLUSTER_NAME: ${{ secrets.GCP_CLUSTER_NAME }}
+  CLUSTER_NAME: ${{ secrets.GKE_CLUSTER_NAME }}
 
 jobs:
   infra:
@@ -35,11 +35,23 @@ jobs:
 
       - name: Tear down any existing cluster
         run: |
+          set -e
           if gcloud container clusters describe "$CLUSTER_NAME" \
                --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
-            echo "→ Deleting existing cluster…"
+            echo "→ Waiting for cluster to reach RUNNING or ERROR state…"
+            while true; do
+              status=$(gcloud container clusters describe "$CLUSTER_NAME" \
+                         --region="$REGION" \
+                         --format='value(status)')
+              echo "   status = $status"
+              [[ "$status" =~ ^(RUNNING|ERROR)$ ]] && break
+              sleep 10
+            done
+            echo "→ Deleting $CLUSTER_NAME"
             gcloud container clusters delete "$CLUSTER_NAME" \
               --region="$REGION" --project="$PROJECT_ID" --quiet
+          else
+            echo "→ No existing cluster named $CLUSTER_NAME"
           fi
 
       - name: Setup Terraform
@@ -60,7 +72,6 @@ jobs:
     name: 🚀 Apps (Cloud Run + Helm)
     needs: infra
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
 
@@ -68,7 +79,6 @@ jobs:
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
-          export_default_credentials: true
 
       - name: Install gcloud CLI
         run: |
@@ -80,13 +90,13 @@ jobs:
           gcloud container clusters get-credentials "$CLUSTER_NAME" \
             --region="$REGION" --project="$PROJECT_ID" --quiet
 
-      - name: Install Helm 3 & add chart repo
+      - name: Install Helm 3 & repo
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
           helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
           helm repo update
 
-      - name: Uninstall any broken Helm releases
+      - name: Uninstall broken Helm releases
         run: |
           helm uninstall prometheus-operator-crds --namespace monitoring || true
           helm uninstall kube-prometheus-stack    --namespace monitoring || true
