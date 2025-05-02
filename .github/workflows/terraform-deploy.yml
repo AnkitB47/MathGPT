@@ -14,12 +14,13 @@ env:
   STATE_BUCKET: ${{ secrets.GCP_TF_STATE_BUCKET }}
   PROJECT_ID:   ${{ secrets.GCP_PROJECT_ID }}
   REGION:       ${{ secrets.GCP_REGION }}
-  CLUSTER_NAME: ${{ secrets.GKE_CLUSTER_NAME }}
+  CLUSTER_NAME: ${{ secrets.GCP_GKE_CLUSTER_NAME }}
 
 jobs:
   infra:
     name: 🚧 Infra (GKE & node-pools)
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
 
@@ -28,23 +29,22 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install gcloud CLI
+      - name: Install gcloud & kubectl
         run: |
           curl -fsSL https://sdk.cloud.google.com | bash >/dev/null
           source $HOME/google-cloud-sdk/path.bash.inc
+          gcloud components install kubectl --quiet
 
       - name: Tear down any existing cluster
         run: |
           set -e
           if gcloud container clusters describe "$CLUSTER_NAME" \
                --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
-            echo "→ Waiting for cluster to reach RUNNING or ERROR state…"
-            while true; do
-              status=$(gcloud container clusters describe "$CLUSTER_NAME" \
-                         --region="$REGION" \
-                         --format='value(status)')
-              echo "   status = $status"
-              [[ "$status" =~ ^(RUNNING|ERROR)$ ]] && break
+            echo "→ Waiting for cluster to reach RUNNING or ERROR…"
+            until gcloud container clusters describe "$CLUSTER_NAME" \
+                    --region="$REGION" \
+                    --format='value(status)' \
+                 | grep -E '^(RUNNING|ERROR)$'; do
               sleep 10
             done
             echo "→ Deleting $CLUSTER_NAME"
@@ -72,6 +72,7 @@ jobs:
     name: 🚀 Apps (Cloud Run + Helm)
     needs: infra
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
 
@@ -80,26 +81,48 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install gcloud CLI
+      - name: Install gcloud & kubectl
         run: |
           curl -fsSL https://sdk.cloud.google.com | bash >/dev/null
           source $HOME/google-cloud-sdk/path.bash.inc
+          gcloud components install kubectl --quiet
 
       - name: Fetch GKE credentials
         run: |
           gcloud container clusters get-credentials "$CLUSTER_NAME" \
             --region="$REGION" --project="$PROJECT_ID" --quiet
 
-      - name: Install Helm 3 & repo
+      - name: Install Helm 3 & add repo
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
           helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
           helm repo update
 
-      - name: Uninstall broken Helm releases
+      - name: Delete legacy monitor-pool & Helm leftovers
         run: |
+          # Node-pool
+          if gcloud container node-pools list \
+              --cluster="$CLUSTER_NAME" \
+              --region="$REGION" \
+              --project="$PROJECT_ID" \
+              | grep -q monitor-pool; then
+            gcloud container node-pools delete monitor-pool \
+              --cluster="$CLUSTER_NAME" \
+              --region="$REGION" \
+              --project="$PROJECT_ID" \
+              --quiet
+          fi
+          # Helm releases
           helm uninstall prometheus-operator-crds --namespace monitoring || true
           helm uninstall kube-prometheus-stack    --namespace monitoring || true
+          # Stuck namespace / CRDs
+          kubectl delete namespace monitoring --ignore-not-found
+          kubectl delete crd \
+            prometheuses.monitoring.coreos.com \
+            prometheusrules.monitoring.coreos.com \
+            servicemonitors.monitoring.coreos.com \
+            podmonitors.monitoring.coreos.com \
+            --ignore-not-found
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2

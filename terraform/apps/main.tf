@@ -213,6 +213,14 @@ resource "helm_release" "prom_stack" {
     value = "${var.gke_cluster_name}-gpu-pool"
   }
 
+  set {
+    name  = "prometheusOperator.nodeSelector.cloud\\.google\\.com/gke-nodepool"
+    value = "${var.gke_cluster_name}-gpu-pool"
+  }
+  set {
+    name  = "prometheus.prometheusSpec.nodeSelector.cloud\\.google\\.com/gke-nodepool"
+    value = "${var.gke_cluster_name}-gpu-pool"
+  }
   # ── the usual storage/retention tweaks ───────────────────────────────
   set { 
     name = "grafana.service.type"                                                                       
