@@ -57,10 +57,6 @@ jobs:
           else
             echo "→ No cluster named $CLUSTER_NAME found, skipping delete."
           fi
-      
-      - name: Clear stale lock (if any)
-        run: |
-          gsutil -q rm gs://$STATE_BUCKET/terraform/state/infra/default.tflock || true
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -71,6 +67,10 @@ jobs:
           terraform init -reconfigure \
             -backend-config="bucket=${STATE_BUCKET}" \
             -backend-config="prefix=terraform/state/infra"
+
+      - name: Clear stale lock (if any)
+        run: |
+          gsutil -q rm gs://$STATE_BUCKET/terraform/state/infra/default.tflock || true
 
       - name: Terraform Apply (infra)
         working-directory: terraform/infra
