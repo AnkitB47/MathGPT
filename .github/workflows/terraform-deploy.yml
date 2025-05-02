@@ -57,10 +57,6 @@ jobs:
             echo "→ No existing cluster named $CLUSTER_NAME, skipping delete."
           fi
 
-      - name: Clear stale Terraform lock
-        run: |
-          gsutil -q rm gs://$STATE_BUCKET/terraform/state/infra/default.tflock || true
-
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
@@ -74,7 +70,10 @@ jobs:
       - name: Terraform Apply (infra)
         working-directory: terraform/infra
         run: |
-          terraform apply -var-file="terraform.tfvars" -auto-approve
+           terraform apply \
+            -var-file="terraform.tfvars" \
+            -auto-approve \
+            -lock=false
 
   apps:
     name: 🚀 Apps (Cloud Run + Helm)
@@ -114,8 +113,7 @@ jobs:
       - name: Terraform Init (apps)
         working-directory: terraform/apps
         run: |
-          # Clear any stale lock before init
-          gsutil -q rm gs://$STATE_BUCKET/terraform/state/apps/default.tflock || true
+
           terraform init -reconfigure \
             -backend-config="bucket=${STATE_BUCKET}" \
             -backend-config="prefix=terraform/state/apps"
@@ -123,7 +121,10 @@ jobs:
       - name: Terraform Apply (apps)
         working-directory: terraform/apps
         run: |
-          terraform apply -var-file="terraform.tfvars" -auto-approve
+          terraform apply \
+            -var-file="terraform.tfvars" \
+            -auto-approve \
+            -lock=false
 
       - name: Output Cloud Run URL
         working-directory: terraform/apps
