@@ -75,7 +75,7 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Setup gcloud CLI
+      - name: Install gcloud CLI
         run: |
           curl -fsSL https://sdk.cloud.google.com | bash >/dev/null
           source $HOME/google-cloud-sdk/path.bash.inc
@@ -84,6 +84,15 @@ jobs:
         run: |
           gcloud container clusters get-credentials "$CLUSTER_NAME" \
             --region="$REGION" --project="$PROJECT_ID" --quiet
+
+      - name: Install Helm 3
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+      - name: Clean up broken Helm releases
+        run: |
+          helm uninstall prometheus-operator-crds --namespace monitoring || true
+          helm uninstall kube-prometheus-stack    --namespace monitoring || true
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
