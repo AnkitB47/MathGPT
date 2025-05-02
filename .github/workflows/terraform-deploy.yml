@@ -18,7 +18,7 @@ env:
 
 jobs:
   infra:
-    name: 🚧 Infra (GKE & Node Pools)
+    name: 🚧 Infra (destroy & recreate GKE + node-pools)
     runs-on: ubuntu-latest
 
     steps:
@@ -29,46 +29,39 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install gcloud SDK & kubectl/auth plugin
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ env.PROJECT_ID }}
-          install_components:
-            - kubectl
-            - gke-gcloud-auth-plugin
+      - name: Install gcloud, kubectl & auth plugin
+        run: |
+          curl -fsSL https://sdk.cloud.google.com | bash >/dev/null
+          source $HOME/google-cloud-sdk/path.bash.inc
+          gcloud components install kubectl gke-gcloud-auth-plugin --quiet
 
-      - name: Setup Terraform CLI
+      - name: Ensure no pre-existing cluster
+        run: |
+          if gcloud container clusters describe "$CLUSTER_NAME" \
+               --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
+            echo "→ Deleting existing cluster ${CLUSTER_NAME}…"
+            gcloud container clusters delete "$CLUSTER_NAME" \
+              --region="$REGION" --project="$PROJECT_ID" --quiet
+          else
+            echo "→ No cluster named ${CLUSTER_NAME}, skipping delete."
+          fi
+
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init (infra)
         working-directory: terraform/infra
         run: |
           terraform init -reconfigure \
-            -backend-config="bucket=${{ env.STATE_BUCKET }}" \
+            -backend-config="bucket=${STATE_BUCKET}" \
             -backend-config="prefix=terraform/state/infra"
-
-      - name: Import existing deployer SA if present
-        working-directory: terraform/infra
-        env:
-          PROJECT_ID: ${{ env.PROJECT_ID }}
-        run: |
-          SA_EMAIL="mathsgpt-deployer@${PROJECT_ID}.iam.gserviceaccount.com"
-          if gcloud iam service-accounts describe "$SA_EMAIL" \
-               --project="$PROJECT_ID" &> /dev/null; then
-            echo "ℹ️  Found existing SA $SA_EMAIL → importing into Terraform state"
-            terraform import google_service_account.deployer \
-              "projects/${PROJECT_ID}/serviceAccounts/${SA_EMAIL}"
-          else
-            echo "ℹ️  No existing SA $SA_EMAIL, Terraform will create it"
-          fi
 
       - name: Terraform Apply (infra)
         working-directory: terraform/infra
         run: |
           terraform apply \
-            -var-file="../terraform.tfvars" \
-            -auto-approve \
-            -lock=false
+            -var-file="terraform.tfvars" \
+            -auto-approve
 
   apps:
     name: 🚀 Apps (Cloud Run + Helm)
@@ -83,41 +76,33 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install gcloud SDK & kubectl/auth plugin
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ env.PROJECT_ID }}
-          install_components:
-            - kubectl
-            - gke-gcloud-auth-plugin
+      - name: Install gcloud, kubectl & auth plugin
+        run: |
+          curl -fsSL https://sdk.cloud.google.com | bash >/dev/null
+          source $HOME/google-cloud-sdk/path.bash.inc
+          gcloud components install kubectl gke-gcloud-auth-plugin --quiet
 
       - name: Fetch GKE credentials
         run: |
           gcloud container clusters get-credentials "$CLUSTER_NAME" \
-            --region="$REGION" \
-            --project="$PROJECT_ID" \
-            --quiet
+            --region="$REGION" --project="$PROJECT_ID" --quiet
 
-      - name: Install Helm 3 & add repo
-        run: |
-          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-          helm repo update
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init (apps)
         working-directory: terraform/apps
         run: |
           terraform init -reconfigure \
-            -backend-config="bucket=${{ env.STATE_BUCKET }}" \
+            -backend-config="bucket=${STATE_BUCKET}" \
             -backend-config="prefix=terraform/state/apps"
 
       - name: Terraform Apply (apps)
         working-directory: terraform/apps
         run: |
           terraform apply \
-            -var-file="../terraform.tfvars" \
-            -auto-approve \
-            -lock=false
+            -var-file="terraform.tfvars" \
+            -auto-approve
 
       - name: Output Cloud Run URL
         working-directory: terraform/apps
