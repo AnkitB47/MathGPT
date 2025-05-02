@@ -56,6 +56,7 @@ docker-compose*.yml
 reset-deploy.sh
 deploy-all.sh
 nuke-all.sh
+reset-gitdep.sh
 
 # ── (Optional) backup of local state from reset-infra.sh ──
 tf_state_backup/
