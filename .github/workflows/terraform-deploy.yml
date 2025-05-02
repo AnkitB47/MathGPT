@@ -37,10 +37,9 @@ jobs:
       - name: Ensure no pre-existing cluster
         run: |
           set -e
-          # if it exists, wait until it's not provisioning, then delete
           if gcloud container clusters describe "$CLUSTER_NAME" \
                --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
-            echo "→ Cluster $CLUSTER_NAME exists; waiting for it to become RUNNING or ERROR..."
+            echo "→ Cluster $CLUSTER_NAME exists; waiting for terminal status…"
             while true; do
               status=$(gcloud container clusters describe "$CLUSTER_NAME" \
                          --region="$REGION" \
@@ -55,8 +54,12 @@ jobs:
             gcloud container clusters delete "$CLUSTER_NAME" \
               --region="$REGION" --project="$PROJECT_ID" --quiet
           else
-            echo "→ No cluster named $CLUSTER_NAME found, skipping delete."
+            echo "→ No existing cluster named $CLUSTER_NAME, skipping delete."
           fi
+
+      - name: Clear stale Terraform lock
+        run: |
+          gsutil -q rm gs://$STATE_BUCKET/terraform/state/infra/default.tflock || true
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
@@ -68,16 +71,10 @@ jobs:
             -backend-config="bucket=${STATE_BUCKET}" \
             -backend-config="prefix=terraform/state/infra"
 
-      - name: Clear stale lock (if any)
-        run: |
-          gsutil -q rm gs://$STATE_BUCKET/terraform/state/infra/default.tflock || true
-
       - name: Terraform Apply (infra)
         working-directory: terraform/infra
         run: |
-          terraform apply \
-            -var-file="terraform.tfvars" \
-            -auto-approve
+          terraform apply -var-file="terraform.tfvars" -auto-approve
 
   apps:
     name: 🚀 Apps (Cloud Run + Helm)
@@ -103,10 +100,9 @@ jobs:
             --region="$REGION" --project="$PROJECT_ID" --quiet
 
       - name: Install Helm 3
-        run: |
-          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        run: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-      - name: Clean up broken Helm releases
+      - name: Uninstall broken Helm releases
         run: |
           helm uninstall prometheus-operator-crds --namespace monitoring || true
           helm uninstall kube-prometheus-stack    --namespace monitoring || true
@@ -117,6 +113,8 @@ jobs:
       - name: Terraform Init (apps)
         working-directory: terraform/apps
         run: |
+          # Clear any stale lock before init
+          gsutil -q rm gs://$STATE_BUCKET/terraform/state/apps/default.tflock || true
           terraform init -reconfigure \
             -backend-config="bucket=${STATE_BUCKET}" \
             -backend-config="prefix=terraform/state/apps"
@@ -124,9 +122,7 @@ jobs:
       - name: Terraform Apply (apps)
         working-directory: terraform/apps
         run: |
-          terraform apply \
-            -var-file="terraform.tfvars" \
-            -auto-approve
+          terraform apply -var-file="terraform.tfvars" -auto-approve
 
       - name: Output Cloud Run URL
         working-directory: terraform/apps
