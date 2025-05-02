@@ -14,7 +14,7 @@ env:
   STATE_BUCKET: ${{ secrets.GCP_TF_STATE_BUCKET }}
   PROJECT_ID:   ${{ secrets.GCP_PROJECT_ID }}
   REGION:       ${{ secrets.GCP_REGION }}
-  CLUSTER_NAME: ${{ secrets.GCP_GKE_CLUSTER_NAME }}
+  CLUSTER_NAME: ${{ secrets.GKE_CLUSTER_NAME }}
 
 jobs:
   infra:
