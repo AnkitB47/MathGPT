@@ -144,7 +144,9 @@ resource "kubernetes_namespace" "monitoring" {
   }
 }
 
-// 5) Install only the CRDs
+// ────────────────────────────────────────────────────────────────────
+// 5) Install only the CRDs, with GPU-taint tolerations
+// ────────────────────────────────────────────────────────────────────
 resource "helm_release" "prometheus_operator_crds" {
   depends_on       = [ kubernetes_namespace.monitoring ]
   name             = "prometheus-operator-crds"
@@ -154,48 +156,68 @@ resource "helm_release" "prometheus_operator_crds" {
   namespace        = kubernetes_namespace.monitoring.metadata[0].name
   create_namespace = false
   skip_crds        = false
-  wait             = true
-  timeout          = 600
+
+  wait    = true
+  timeout = 600
+
+  # ── toleration so the CRD installer can schedule on your GPU-tainted pool ──
+  set {
+    name  = "global.tolerations[0].key"
+    value = "nvidia.com/gpu"
+  }
+  set {
+    name  = "global.tolerations[0].operator"
+    value = "Exists"
+  }
+  set {
+    name  = "global.tolerations[0].effect"
+    value = "NoSchedule"
+  }
 }
 
-// 6) Main kube-prometheus-stack, skipping CRDs, pinned to monitor‐pool
+// ────────────────────────────────────────────────────────────────────
+// 6) Main kube-prometheus-stack, skip CRDs, pin + tolerate GPU taint
+// ────────────────────────────────────────────────────────────────────
 resource "helm_release" "prom_stack" {
-  depends_on    = [ helm_release.prometheus_operator_crds ]
-  name          = "kube-prometheus-stack"
-  repository    = "https://prometheus-community.github.io/helm-charts"
-  chart         = "kube-prometheus-stack"
-  version       = "45.0.0"
-  namespace     = kubernetes_namespace.monitoring.metadata[0].name
+  depends_on       = [ helm_release.prometheus_operator_crds ]
+  name             = "kube-prometheus-stack"
+  repository       = "https://prometheus-community.github.io/helm-charts"
+  chart            = "kube-prometheus-stack"
+  version          = "45.0.0"
+  namespace        = kubernetes_namespace.monitoring.metadata[0].name
   create_namespace = false
   skip_crds        = true
-  cleanup_on_fail = true
+  cleanup_on_fail  = true
 
   wait           = true
-  wait_for_jobs  = false      // don’t hang waiting for batch jobs
-  timeout        = 900        // 15 minutes
+  wait_for_jobs  = false
+  timeout        = 1800  # 30m
 
-  set { 
-    name = "grafana.service.type"
-    value = "LoadBalancer" 
+  # ── tolerations so Prometheus pods land on GPU-tainted nodes ───────────
+  set {
+    name  = "global.tolerations[0].key"
+    value = "nvidia.com/gpu"
   }
-  set { 
-    name = "grafana.adminPassword"
-    value = "admin" 
+  set {
+    name  = "global.tolerations[0].operator"
+    value = "Exists"
   }
-  set { 
-    name = "prometheus.prometheusSpec.retention"
-    value = "7d" 
+  set {
+    name  = "global.tolerations[0].effect"
+    value = "NoSchedule"
   }
-  set { 
-    name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName"
-    value = "standard" 
+
+  # ── pin all pods to your one GPU node-pool ────────────────────────────
+  set {
+    name  = "global.nodeSelector.cloud\\.google\\.com/gke-nodepool"
+    value = "${var.gke_cluster_name}-gpu-pool"
   }
-  set { 
-    name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.accessModes[0]"
-    value = "ReadWriteOnce" 
-  }
-  set { 
-    name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage"
-    value = "50Gi" 
-  }
+
+  # ── the usual storage/retention tweaks ───────────────────────────────
+  set { name = "grafana.service.type"                                                                       value = "LoadBalancer" }
+  set { name = "grafana.adminPassword"                                                                       value = "admin"         }
+  set { name = "prometheus.prometheusSpec.retention"                                                         value = "7d"            }
+  set { name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName"              value = "standard"      }
+  set { name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.accessModes[0]"                value = "ReadWriteOnce" }
+  set { name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage"     value = "50Gi"          }
 }

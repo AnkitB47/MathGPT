@@ -14,13 +14,12 @@ env:
   STATE_BUCKET: ${{ secrets.GCP_TF_STATE_BUCKET }}
   PROJECT_ID:   ${{ secrets.GCP_PROJECT_ID }}
   REGION:       ${{ secrets.GCP_REGION }}
-  CLUSTER_NAME: ${{ secrets.GKE_CLUSTER_NAME }}
+  CLUSTER_NAME: ${{ secrets.GCP_CLUSTER_NAME }}
 
 jobs:
   infra:
-    name: 🚧 Infra (destroy & recreate GKE + node-pools)
+    name: 🚧 Infra (GKE & node-pools)
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
 
@@ -34,43 +33,25 @@ jobs:
           curl -fsSL https://sdk.cloud.google.com | bash >/dev/null
           source $HOME/google-cloud-sdk/path.bash.inc
 
-      - name: Ensure no pre-existing cluster
+      - name: Tear down any existing cluster
         run: |
-          set -e
           if gcloud container clusters describe "$CLUSTER_NAME" \
                --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
-            echo "→ Cluster $CLUSTER_NAME exists; waiting for terminal status…"
-            while true; do
-              status=$(gcloud container clusters describe "$CLUSTER_NAME" \
-                         --region="$REGION" \
-                         --format='value(status)')
-              echo "   status = $status"
-              if [[ "$status" == "RUNNING" || "$status" == "ERROR" ]]; then
-                break
-              fi
-              sleep 10
-            done
-            echo "→ Deleting cluster $CLUSTER_NAME…"
+            echo "→ Deleting existing cluster…"
             gcloud container clusters delete "$CLUSTER_NAME" \
               --region="$REGION" --project="$PROJECT_ID" --quiet
-          else
-            echo "→ No existing cluster named $CLUSTER_NAME, skipping delete."
           fi
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      - name: Terraform Init (infra)
+      - name: Terraform Init & Apply (infra)
         working-directory: terraform/infra
         run: |
           terraform init -reconfigure \
             -backend-config="bucket=${STATE_BUCKET}" \
             -backend-config="prefix=terraform/state/infra"
-
-      - name: Terraform Apply (infra)
-        working-directory: terraform/infra
-        run: |
-           terraform apply \
+          terraform apply \
             -var-file="terraform.tfvars" \
             -auto-approve \
             -lock=false
@@ -99,10 +80,13 @@ jobs:
           gcloud container clusters get-credentials "$CLUSTER_NAME" \
             --region="$REGION" --project="$PROJECT_ID" --quiet
 
-      - name: Install Helm 3
-        run: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+      - name: Install Helm 3 & add chart repo
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
 
-      - name: Uninstall broken Helm releases
+      - name: Uninstall any broken Helm releases
         run: |
           helm uninstall prometheus-operator-crds --namespace monitoring || true
           helm uninstall kube-prometheus-stack    --namespace monitoring || true
@@ -110,17 +94,12 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      - name: Terraform Init (apps)
+      - name: Terraform Init & Apply (apps)
         working-directory: terraform/apps
         run: |
-
           terraform init -reconfigure \
             -backend-config="bucket=${STATE_BUCKET}" \
             -backend-config="prefix=terraform/state/apps"
-
-      - name: Terraform Apply (apps)
-        working-directory: terraform/apps
-        run: |
           terraform apply \
             -var-file="terraform.tfvars" \
             -auto-approve \
