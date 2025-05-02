@@ -18,7 +18,7 @@ env:
 
 jobs:
   infra:
-    name: 🚧 Infra (GKE & node-pools)
+    name: 🚧 Infra (GKE & node‐pools)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -33,31 +33,6 @@ jobs:
           curl -fsSL https://sdk.cloud.google.com | bash >/dev/null
           source $HOME/google-cloud-sdk/path.bash.inc
           gcloud components install kubectl gke-gcloud-auth-plugin --quiet
-
-      - name: Tear down any existing cluster
-        run: |
-          set -e
-          if gcloud container clusters describe "$CLUSTER_NAME" \
-               --region="$REGION" \
-               --project="$PROJECT_ID" &>/dev/null; then
-            echo "→ Waiting for cluster to reach RUNNING or ERROR…"
-            until gcloud container clusters describe "$CLUSTER_NAME" \
-                    --region="$REGION" \
-                    --format='value(status)' \
-                 | grep -E '^(RUNNING|ERROR)$'; do
-              sleep 10
-            done
-            echo "→ Deleting $CLUSTER_NAME"
-            gcloud container clusters delete "$CLUSTER_NAME" \
-              --region="$REGION" \
-              --project="$PROJECT_ID" \
-              --quiet
-          else
-            echo "→ No existing cluster named $CLUSTER_NAME, skipping."
-          fi
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init & Apply (infra)
         working-directory: terraform/infra
@@ -74,7 +49,6 @@ jobs:
     name: 🚀 Apps (Cloud Run + Helm)
     needs: infra
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
 
@@ -83,63 +57,22 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install gcloud & kubectl
+      - name: Install gcloud, kubectl & GKE auth plugin
         run: |
           curl -fsSL https://sdk.cloud.google.com | bash >/dev/null
           source $HOME/google-cloud-sdk/path.bash.inc
-          gcloud components install kubectl --quiet
+          gcloud components install kubectl gke-gcloud-auth-plugin --quiet
 
       - name: Fetch GKE credentials
         run: |
           gcloud container clusters get-credentials "$CLUSTER_NAME" \
-            --region="$REGION" \
-            --project="$PROJECT_ID" \
-            --quiet
+            --region="$REGION" --project="$PROJECT_ID" --quiet
 
       - name: Install Helm 3 & add repo
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
           helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
           helm repo update
-
-      - name: Delete legacy monitor-pool & Helm leftovers
-        run: |
-          # only if the cluster exists
-          if gcloud container clusters describe "$CLUSTER_NAME" \
-               --region="$REGION" \
-               --project="$PROJECT_ID" &>/dev/null; then
-
-            # 1️⃣ Remove monitor-pool if present
-            if gcloud container node-pools list \
-                --cluster="$CLUSTER_NAME" \
-                --region="$REGION" \
-                --project="$PROJECT_ID" \
-                | grep -q monitor-pool; then
-              gcloud container node-pools delete monitor-pool \
-                --cluster="$CLUSTER_NAME" \
-                --region="$REGION" \
-                --project="$PROJECT_ID" \
-                --quiet
-            fi
-
-            # 2️⃣ Uninstall any broken Helm releases
-            helm uninstall prometheus-operator-crds --namespace monitoring || true
-            helm uninstall kube-prometheus-stack    --namespace monitoring || true
-
-            # 3️⃣ Clean up stuck namespace & CRDs
-            kubectl delete namespace monitoring --ignore-not-found
-            kubectl delete crd \
-              prometheuses.monitoring.coreos.com \
-              prometheusrules.monitoring.coreos.com \
-              servicemonitors.monitoring.coreos.com \
-              podmonitors.monitoring.coreos.com \
-              --ignore-not-found
-          else
-            echo "→ Cluster not found; skipping node-pool & Helm cleanup."
-          fi
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init & Apply (apps)
         working-directory: terraform/apps

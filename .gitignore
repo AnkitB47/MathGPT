@@ -55,6 +55,7 @@ docker-compose*.yml
 **/*.auto.tfvars
 reset-deploy.sh
 deploy-all.sh
+nuke-all.sh
 
 # ── (Optional) backup of local state from reset-infra.sh ──
 tf_state_backup/
