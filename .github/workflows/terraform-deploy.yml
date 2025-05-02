@@ -36,13 +36,26 @@ jobs:
 
       - name: Ensure no pre-existing cluster
         run: |
+          set -e
+          # if it exists, wait until it's not provisioning, then delete
           if gcloud container clusters describe "$CLUSTER_NAME" \
                --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
-            echo "→ Deleting existing cluster ${CLUSTER_NAME}…"
+            echo "→ Cluster $CLUSTER_NAME exists; waiting for it to become RUNNING or ERROR..."
+            while true; do
+              status=$(gcloud container clusters describe "$CLUSTER_NAME" \
+                         --region="$REGION" \
+                         --format='value(status)')
+              echo "   status = $status"
+              if [[ "$status" == "RUNNING" || "$status" == "ERROR" ]]; then
+                break
+              fi
+              sleep 10
+            done
+            echo "→ Deleting cluster $CLUSTER_NAME…"
             gcloud container clusters delete "$CLUSTER_NAME" \
               --region="$REGION" --project="$PROJECT_ID" --quiet
           else
-            echo "→ No cluster named ${CLUSTER_NAME} found, skipping delete."
+            echo "→ No cluster named $CLUSTER_NAME found, skipping delete."
           fi
 
       - name: Setup Terraform
