@@ -35,7 +35,7 @@ variable "gke_gpu_type" {
 
 variable "gke_gpu_max_nodes" {
   type        = number
-  default     = 1
+  default     = 2
   description = "Max number of GPU nodes in the GPU node pool"
 }
 
