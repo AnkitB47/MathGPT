@@ -34,6 +34,11 @@ jobs:
           source $HOME/google-cloud-sdk/path.bash.inc
           gcloud components install kubectl gke-gcloud-auth-plugin --quiet
 
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: latest
+
       - name: Terraform Init & Apply (infra)
         working-directory: terraform/infra
         run: |
@@ -62,6 +67,11 @@ jobs:
           curl -fsSL https://sdk.cloud.google.com | bash >/dev/null
           source $HOME/google-cloud-sdk/path.bash.inc
           gcloud components install kubectl gke-gcloud-auth-plugin --quiet
+
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: latest
 
       - name: Fetch GKE credentials
         run: |
