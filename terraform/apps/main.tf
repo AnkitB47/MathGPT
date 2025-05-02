@@ -214,10 +214,28 @@ resource "helm_release" "prom_stack" {
   }
 
   # ── the usual storage/retention tweaks ───────────────────────────────
-  set { name = "grafana.service.type"                                                                       value = "LoadBalancer" }
-  set { name = "grafana.adminPassword"                                                                       value = "admin"         }
-  set { name = "prometheus.prometheusSpec.retention"                                                         value = "7d"            }
-  set { name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName"              value = "standard"      }
-  set { name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.accessModes[0]"                value = "ReadWriteOnce" }
-  set { name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage"     value = "50Gi"          }
+  set { 
+    name = "grafana.service.type"                                                                       
+    value = "LoadBalancer" 
+  }
+  set { 
+    name = "grafana.adminPassword"                                                                       
+    value = "admin"         
+  }
+  set { 
+    name = "prometheus.prometheusSpec.retention"                                                         
+    value = "7d"            
+  }
+  set { 
+    name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName"              
+    value = "standard"      
+  }
+  set { 
+    name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.accessModes[0]"                
+    value = "ReadWriteOnce" 
+  }
+  set { 
+    name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage"     
+    value = "50Gi"          
+  }
 }
