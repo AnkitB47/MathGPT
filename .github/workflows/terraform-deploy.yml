@@ -14,7 +14,7 @@ env:
   STATE_BUCKET: ${{ secrets.GCP_TF_STATE_BUCKET }}
   PROJECT_ID:   ${{ secrets.GCP_PROJECT_ID }}
   REGION:       ${{ secrets.GCP_REGION }}
-  CLUSTER_NAME: ${{ secrets.GKE_CLUSTER_NAME }}
+  CLUSTER_NAME: ${{ secrets.GCP_GKE_CLUSTER_NAME }}
 
 jobs:
   infra:
@@ -29,16 +29,15 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install gcloud SDK (with kubectl + auth plugin)
+      - name: Install gcloud SDK & kubectl/auth plugin
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ env.PROJECT_ID }}
-          export_default_credentials: true
-          install_components: |
-            kubectl
-            gke-gcloud-auth-plugin
+          install_components:
+            - kubectl
+            - gke-gcloud-auth-plugin
 
-      - name: Install Terraform CLI
+      - name: Setup Terraform CLI
         uses: hashicorp/setup-terraform@v2
 
       - name: Terraform Init (infra)
@@ -84,23 +83,26 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install gcloud SDK (with kubectl + auth plugin)
+      - name: Install gcloud SDK & kubectl/auth plugin
         uses: google-github-actions/setup-gcloud@v1
         with:
           project_id: ${{ env.PROJECT_ID }}
-          export_default_credentials: true
-          install_components: |
-            kubectl
-            gke-gcloud-auth-plugin
+          install_components:
+            - kubectl
+            - gke-gcloud-auth-plugin
 
       - name: Fetch GKE credentials
-        uses: google-github-actions/get-gke-credentials@v1
-        with:
-          cluster_name: ${{ env.CLUSTER_NAME }}
-          location:     ${{ env.REGION }}
+        run: |
+          gcloud container clusters get-credentials "$CLUSTER_NAME" \
+            --region="$REGION" \
+            --project="$PROJECT_ID" \
+            --quiet
 
-      - name: Install Terraform CLI
-        uses: hashicorp/setup-terraform@v2
+      - name: Install Helm 3 & add repo
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          helm repo update
 
       - name: Terraform Init (apps)
         working-directory: terraform/apps
@@ -117,7 +119,7 @@ jobs:
             -auto-approve \
             -lock=false
 
-      - name: Show Cloud Run URL
+      - name: Output Cloud Run URL
         working-directory: terraform/apps
         run: |
           echo "→ Cloud Run URL: $(terraform output -raw cloud_run_url)"
