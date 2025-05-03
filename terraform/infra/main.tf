@@ -1,12 +1,3 @@
-terraform {
-  required_providers {
-    google = {
-      source  = "hashicorp/google"
-      version = "~> 4.0"
-    }
-  }
-}
-
 provider "google" {
   project = var.project_id
   region  = var.region
@@ -30,9 +21,7 @@ resource "google_container_cluster" "gpu_cluster" {
 
   node_config {
     machine_type = var.gke_cpu_machine_type
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform",
-    ]
+    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
   }
 
   enable_shielded_nodes       = true
@@ -42,17 +31,9 @@ resource "google_container_cluster" "gpu_cluster" {
 
 # 2) Expose either the new or existing cluster’s endpoint/CA cert
 locals {
-  cluster_name = var.cluster_exists
-    ? data.google_container_cluster.existing[0].name
-    : google_container_cluster.gpu_cluster[0].name
-
-  cluster_endpoint = var.cluster_exists
-    ? data.google_container_cluster.existing[0].endpoint
-    : google_container_cluster.gpu_cluster[0].endpoint
-
-  cluster_ca_certificate = var.cluster_exists
-    ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate
-    : google_container_cluster.gpu_cluster[0].master_auth[0].cluster_ca_certificate
+  cluster_name           = var.cluster_exists ? data.google_container_cluster.existing[0].name : google_container_cluster.gpu_cluster[0].name
+  cluster_endpoint       = var.cluster_exists ? data.google_container_cluster.existing[0].endpoint : google_container_cluster.gpu_cluster[0].endpoint
+  cluster_ca_certificate = var.cluster_exists ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate : google_container_cluster.gpu_cluster[0].master_auth[0].cluster_ca_certificate
 }
 
 output "cluster_endpoint" {
