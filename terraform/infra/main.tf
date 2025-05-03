@@ -3,6 +3,7 @@ provider "google" {
   region  = var.region
 }
 
+# If reusing an existing cluster, read it.
 data "google_container_cluster" "existing" {
   count    = var.cluster_exists ? 1 : 0
   name     = var.gke_cluster_name
@@ -10,26 +11,52 @@ data "google_container_cluster" "existing" {
   project  = var.project_id
 }
 
-resource "google_container_cluster" "gpu" {
+# Create (or skip) the GKE cluster itself.
+resource "google_container_cluster" "gpu_cluster" {
   count                    = var.cluster_exists ? 0 : 1
   name                     = var.gke_cluster_name
   location                 = var.region
   remove_default_node_pool = true
-  initial_node_count       = 1
+  initial_node_count       = 0
 
-  node_config {
-    machine_type = var.gke_cpu_machine_type
-    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
-  }
-
-  # … any other cluster settings …
+  enable_shielded_nodes       = true
+  enable_intranode_visibility = true
+  enable_l4_ilb_subsetting    = true
 }
 
+# Expose the actual cluster name/endpoint/cert, either new or existing
+locals {
+  cluster_name = var.cluster_exists
+    ? data.google_container_cluster.existing[0].name
+    : google_container_cluster.gpu_cluster[0].name
+
+  cluster_endpoint = var.cluster_exists
+    ? data.google_container_cluster.existing[0].endpoint
+    : google_container_cluster.gpu_cluster[0].endpoint
+
+  cluster_ca_certificate = var.cluster_exists
+    ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate
+    : google_container_cluster.gpu_cluster[0].master_auth[0].cluster_ca_certificate
+}
+
+output "cluster_endpoint" {
+  value = local.cluster_endpoint
+}
+
+output "cluster_ca_certificate" {
+  value = local.cluster_ca_certificate
+}
+
+# ───────────────────────────────────────────────────────────────────
+# CPU node-pool (for Cloud Run, Prometheus, etc.)
+# ───────────────────────────────────────────────────────────────────
 resource "google_container_node_pool" "cpu_pool" {
   count    = var.cluster_exists ? 0 : 1
+  name     = "${var.gke_cluster_name}-cpu-pool"
   cluster  = local.cluster_name
   location = var.region
-  name     = "${var.gke_cluster_name}-cpu-pool"
+
+  initial_node_count = 1
 
   node_config {
     machine_type = var.gke_cpu_machine_type
@@ -51,11 +78,14 @@ resource "google_container_node_pool" "cpu_pool" {
   }
 }
 
+# ───────────────────────────────────────────────────────────────────
+# GPU node-pool (tainted so only GPU pods land here)
+# ───────────────────────────────────────────────────────────────────
 resource "google_container_node_pool" "gpu_pool" {
   count    = var.cluster_exists ? 0 : 1
+  name     = "${var.gke_cluster_name}-gpu-pool"
   cluster  = local.cluster_name
   location = var.region
-  name     = "${var.gke_cluster_name}-gpu-pool"
 
   node_config {
     machine_type = var.gke_gpu_machine_type
@@ -64,17 +94,21 @@ resource "google_container_node_pool" "gpu_pool" {
       "https://www.googleapis.com/auth/monitoring",
       "https://www.googleapis.com/auth/devstorage.read_only",
     ]
+
     guest_accelerator {
       type  = var.gke_gpu_type
       count = 1
     }
+
     preemptible  = true
     disk_size_gb = 30
     disk_type    = "pd-ssd"
+
     metadata = {
       disable-legacy-endpoints = "true"
       install-nvidia-driver    = "true"
     }
+
     taint {
       key    = "nvidia.com/gpu"
       value  = "present"
@@ -86,6 +120,8 @@ resource "google_container_node_pool" "gpu_pool" {
     min_node_count = 1
     max_node_count = var.gke_gpu_max_nodes
   }
+
+  node_locations = var.gke_gpu_zones
 
   timeouts {
     create = "30m"
@@ -99,18 +135,4 @@ resource "google_container_node_pool" "gpu_pool" {
       node_config[0].metadata,
     ]
   }
-}
-
-locals {
-  cluster_name           = var.cluster_exists ? data.google_container_cluster.existing[0].name           : google_container_cluster.gpu[0].name
-  cluster_endpoint       = var.cluster_exists ? data.google_container_cluster.existing[0].endpoint       : google_container_cluster.gpu[0].endpoint
-  cluster_ca_certificate = var.cluster_exists ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate : google_container_cluster.gpu[0].master_auth[0].cluster_ca_certificate
-}
-
-output "cluster_endpoint" {
-  value = local.cluster_endpoint
-}
-
-output "cluster_ca_certificate" {
-  value = local.cluster_ca_certificate
 }

@@ -11,6 +11,11 @@ permissions:
   contents: read
   id-token: write
 
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION:     ${{ secrets.GCP_REGION }}
+  SA_EMAIL:   cloud-run-deployer@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com
+
 jobs:
   deploy-general:
     runs-on: ubuntu-latest
@@ -23,24 +28,27 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Setup gcloud SDK
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-          install_components: beta
-          export_default_credentials: true
+      - name: Install gcloud SDK & components
+        run: |
+          curl -fsSL https://sdk.cloud.google.com | bash >/dev/null
+          source $HOME/google-cloud-sdk/path.bash.inc
+          # ensure the Cloud Run and GKE auth plugins are available
+          gcloud components install beta gke-gcloud-auth-plugin --quiet
 
       - name: Configure region
-        run: gcloud config set run/region ${{ secrets.GCP_REGION }}
+        run: |
+          gcloud config set project $PROJECT_ID
+          gcloud config set run/region $REGION
 
       - name: Deploy to Cloud Run
         run: |
           gcloud run deploy mathsgpt-general \
-            --image docker.io/ankitb47/maths-gpt:general_v1 \
+            --project $PROJECT_ID \
+            --region $REGION \
             --platform managed \
-            --region ${{ secrets.GCP_REGION }} \
-            --port=8501 \
-            --cpu 2 --memory 2Gi --concurrency 1 --min-instances=0 \
+            --image docker.io/ankitb47/maths-gpt:general_v1 \
+            --port 8501 \
+            --cpu 2 --memory 2Gi --concurrency 1 --min-instances 0 \
             --timeout 300s \
-            --service-account cloud-run-deployer@${{ secrets.GCP_PROJECT_ID }}.iam.gserviceaccount.com \
+            --service-account $SA_EMAIL \
             --allow-unauthenticated

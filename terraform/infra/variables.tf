@@ -22,13 +22,13 @@ variable "gke_cluster_name" {
 // Cluster reuse flag
 // ───────────────────────────────────────────────────────────────────
 variable "cluster_exists" {
-  description = "If true, will reuse an existing cluster instead of creating a new one"
+  description = "If true, reuse an existing cluster instead of creating a new one"
   type        = bool
   default     = false
 }
 
 // ───────────────────────────────────────────────────────────────────
-// Node-pool sizing
+// CPU node-pool sizing
 // ───────────────────────────────────────────────────────────────────
 variable "gke_cpu_machine_type" {
   description = "Machine type for the CPU node-pool"
@@ -42,6 +42,9 @@ variable "gke_cpu_max_nodes" {
   default     = 3
 }
 
+// ───────────────────────────────────────────────────────────────────
+// GPU node-pool sizing
+// ───────────────────────────────────────────────────────────────────
 variable "gke_gpu_machine_type" {
   description = "Machine type for the GPU node-pool"
   type        = string
@@ -60,3 +63,8 @@ variable "gke_gpu_max_nodes" {
   default     = 1
 }
 
+variable "gke_gpu_zones" {
+  description = "Zone(s) to place GPU nodes in"
+  type        = list(string)
+  default     = ["europe-west4-c"]
+}

@@ -6,10 +6,6 @@ on:
     types: [completed]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  id-token: write
-
 jobs:
   deploy-gpu:
     runs-on: ubuntu-latest
@@ -17,7 +13,7 @@ jobs:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION:     ${{ secrets.GCP_REGION }}
       CLUSTER:    ${{ secrets.GKE_CLUSTER_NAME }}
-      NODEPOOL:   mathsgpt-gpu-cluster-gpu-pool
+      NODEPOOL:   ${{ secrets.GKE_CLUSTER_NAME }}-gpu-pool
       NAMESPACE:  gpu-assistant
 
     steps:
@@ -28,17 +24,12 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Setup gcloud SDK
-        uses: google-github-actions/setup-gcloud@v1
-        with:
-          project_id: ${{ env.PROJECT_ID }}
-          install_components: beta
-
-      - name: Get GKE credentials
+      - name: Install gcloud & get creds
         uses: google-github-actions/get-gke-credentials@v1
         with:
           cluster_name: ${{ env.CLUSTER }}
           location:     ${{ env.REGION }}
+          credentials: ${{ secrets.GCP_SA_KEY }}
 
       - name: Wait for GPU nodes
         run: |
@@ -46,7 +37,7 @@ jobs:
           kubectl get nodes --show-labels
           kubectl wait \
             --for=condition=Ready nodes \
-            --selector=cloud.google.com/gke-nodepool=${{ env.CLUSTER }}-gpu-pool \
+            --selector=cloud.google.com/gke-nodepool=${NODEPOOL} \
             --timeout=10m
 
       - name: Create namespace
@@ -54,7 +45,7 @@ jobs:
           kubectl create namespace ${{ env.NAMESPACE }} \
             --dry-run=client -o yaml | kubectl apply -f -
 
-      - name: Deploy GPU resources
+      - name: Deploy GPU workloads
         run: |
           sed -i "s|<YOUR_NODE_POOL>|${NODEPOOL}|g" coding-assistant/kubernetes/deployment.yaml
           kubectl apply -f coding-assistant/kubernetes/deployment.yaml -n ${{ env.NAMESPACE }}
