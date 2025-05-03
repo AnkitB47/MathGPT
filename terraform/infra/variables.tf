@@ -36,6 +36,12 @@ variable "gke_cpu_machine_type" {
   default     = "e2-small"
 }
 
+variable "gke_cpu_max_nodes" {
+  description = "Maximum size for the CPU node-pool"
+  type        = number
+  default     = 3
+}
+
 variable "gke_gpu_machine_type" {
   description = "Machine type for the GPU node-pool"
   type        = string
