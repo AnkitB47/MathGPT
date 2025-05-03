@@ -26,17 +26,9 @@ resource "google_container_cluster" "gpu_cluster" {
 
 # Expose the actual cluster name/endpoint/cert, either new or existing
 locals {
-  cluster_name = var.cluster_exists
-    ? data.google_container_cluster.existing[0].name
-    : google_container_cluster.gpu_cluster[0].name
-
-  cluster_endpoint = var.cluster_exists
-    ? data.google_container_cluster.existing[0].endpoint
-    : google_container_cluster.gpu_cluster[0].endpoint
-
-  cluster_ca_certificate = var.cluster_exists
-    ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate
-    : google_container_cluster.gpu_cluster[0].master_auth[0].cluster_ca_certificate
+  cluster_name           = var.cluster_exists ? data.google_container_cluster.existing[0].name : google_container_cluster.gpu[0].name
+  cluster_endpoint       = var.cluster_exists ? data.google_container_cluster.existing[0].endpoint : google_container_cluster.gpu[0].endpoint
+  cluster_ca_certificate = var.cluster_exists ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate : google_container_cluster.gpu[0].master_auth[0].cluster_ca_certificate
 }
 
 output "cluster_endpoint" {
