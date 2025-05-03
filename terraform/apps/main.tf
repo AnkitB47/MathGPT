@@ -2,7 +2,6 @@
 // terraform/apps/main.tf
 // ────────────────────────────────────────────────────────────────────
 
-// 0) Read outputs from the infra GCS backend
 data "terraform_remote_state" "infra" {
   backend = "gcs"
   config = {

@@ -1,11 +1,3 @@
-terraform {
-  backend "gcs" {
-    bucket = "mathgpt-tf-state"
-    prefix = "terraform/state/infra"
-  }
-}
-
-
 provider "google" {
   project = var.project_id
   region  = var.region
