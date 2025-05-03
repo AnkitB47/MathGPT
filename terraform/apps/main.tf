@@ -19,6 +19,12 @@ provider "google" {
 
 data "google_client_config" "default" {}
 
+// Service Account & IAM for Cloud Run
+data "google_service_account" "deployer" {
+  project    = var.project_id
+  account_id = "mathsgpt-deployer"
+}
+
 provider "kubernetes" {
   host                   = "https://${data.terraform_remote_state.infra.outputs.cluster_endpoint}"
   cluster_ca_certificate = base64decode(data.terraform_remote_state.infra.outputs.cluster_ca_certificate)
@@ -59,12 +65,7 @@ provider "helm" {
   }
 }
 
-// 2) Service Account & IAM for Cloud Run
-data "google_service_account" "deployer" {
-  project    = var.project_id
-  account_id = "mathsgpt-deployer"
-}
-
+// 2) IAM bindings for the deployer SA
 resource "google_project_iam_member" "run_admin" {
   project = var.project_id
   role    = "roles/run.admin"
@@ -75,7 +76,7 @@ resource "google_project_iam_member" "run_invoker" {
   role    = "roles/run.invoker"
   member  = "serviceAccount:${data.google_service_account.deployer.email}"
 }
-resource "google_project_iam_member" "service_account_user" {
+resource "google_project_iam_member" "sa_user" {
   project = var.project_id
   role    = "roles/iam.serviceAccountUser"
   member  = "serviceAccount:${data.google_service_account.deployer.email}"
@@ -83,6 +84,16 @@ resource "google_project_iam_member" "service_account_user" {
 resource "google_project_iam_member" "k8s_admin" {
   project = var.project_id
   role    = "roles/container.admin"
+  member  = "serviceAccount:${data.google_service_account.deployer.email}"
+}
+resource "google_project_iam_member" "compute_admin" {
+  project = var.project_id
+  role    = "roles/compute.instanceAdmin.v1"
+  member  = "serviceAccount:${data.google_service_account.deployer.email}"
+}
+resource "google_project_iam_member" "storage_admin" {
+  project = var.project_id
+  role    = "roles/storage.admin"
   member  = "serviceAccount:${data.google_service_account.deployer.email}"
 }
 
@@ -134,7 +145,7 @@ resource "google_cloud_run_service_iam_member" "cpu_public" {
   member   = "allUsers"
 }
 
-// 4) The monitoring namespace (so it never “hangs terminating”)
+// 4) The monitoring namespace
 resource "kubernetes_namespace" "monitoring" {
   metadata {
     name = "monitoring"
@@ -144,9 +155,7 @@ resource "kubernetes_namespace" "monitoring" {
   }
 }
 
-// ────────────────────────────────────────────────────────────────────
-// 5) Install only the CRDs, with GPU-taint tolerations
-// ────────────────────────────────────────────────────────────────────
+// 5) Install CRDs (no tolerations needed once you remove the pool taint)
 resource "helm_release" "prometheus_operator_crds" {
   depends_on       = [ kubernetes_namespace.monitoring ]
   name             = "prometheus-operator-crds"
@@ -159,25 +168,9 @@ resource "helm_release" "prometheus_operator_crds" {
 
   wait    = true
   timeout = 600
-
-  # ── toleration so the CRD installer can schedule on your GPU-tainted pool ──
-  set {
-    name  = "global.tolerations[0].key"
-    value = "nvidia.com/gpu"
-  }
-  set {
-    name  = "global.tolerations[0].operator"
-    value = "Exists"
-  }
-  set {
-    name  = "global.tolerations[0].effect"
-    value = "NoSchedule"
-  }
 }
 
-// ────────────────────────────────────────────────────────────────────
-// 6) Main kube-prometheus-stack, skip CRDs, pin + tolerate GPU taint
-// ────────────────────────────────────────────────────────────────────
+// 6) Main kube-prometheus-stack, pinned to your (now un-tainted) GPU pool
 resource "helm_release" "prom_stack" {
   depends_on       = [ helm_release.prometheus_operator_crds ]
   name             = "kube-prometheus-stack"
@@ -191,28 +184,13 @@ resource "helm_release" "prom_stack" {
 
   wait           = true
   wait_for_jobs  = false
-  timeout        = 1800  # 30m
+  timeout        = 1800  // 30m
 
-  # ── tolerations so Prometheus pods land on GPU-tainted nodes ───────────
-  set {
-    name  = "global.tolerations[0].key"
-    value = "nvidia.com/gpu"
-  }
-  set {
-    name  = "global.tolerations[0].operator"
-    value = "Exists"
-  }
-  set {
-    name  = "global.tolerations[0].effect"
-    value = "NoSchedule"
-  }
-
-  # ── pin all pods to your one GPU node-pool ────────────────────────────
+  // pin everything onto your GPU node-pool (untainted)
   set {
     name  = "global.nodeSelector.cloud\\.google\\.com/gke-nodepool"
     value = "${var.gke_cluster_name}-gpu-pool"
   }
-
   set {
     name  = "prometheusOperator.nodeSelector.cloud\\.google\\.com/gke-nodepool"
     value = "${var.gke_cluster_name}-gpu-pool"
@@ -221,29 +199,30 @@ resource "helm_release" "prom_stack" {
     name  = "prometheus.prometheusSpec.nodeSelector.cloud\\.google\\.com/gke-nodepool"
     value = "${var.gke_cluster_name}-gpu-pool"
   }
-  # ── the usual storage/retention tweaks ───────────────────────────────
-  set { 
-    name = "grafana.service.type"                                                                       
-    value = "LoadBalancer" 
+
+  // storage & retention tweaks
+  set {
+    name  = "grafana.service.type"
+    value = "LoadBalancer"
   }
-  set { 
-    name = "grafana.adminPassword"                                                                       
-    value = "admin"         
+  set {
+    name  = "grafana.adminPassword"
+    value = "admin"
   }
-  set { 
-    name = "prometheus.prometheusSpec.retention"                                                         
-    value = "7d"            
+  set {
+    name  = "prometheus.prometheusSpec.retention"
+    value = "7d"
   }
-  set { 
-    name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName"              
-    value = "standard"      
+  set {
+    name  = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.storageClassName"
+    value = "standard"
   }
-  set { 
-    name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.accessModes[0]"                
-    value = "ReadWriteOnce" 
+  set {
+    name  = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.accessModes[0]"
+    value = "ReadWriteOnce"
   }
-  set { 
-    name = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage"     
-    value = "50Gi"          
+  set {
+    name  = "prometheus.prometheusSpec.storageSpec.volumeClaimTemplate.spec.resources.requests.storage"
+    value = "50Gi"
   }
 }
