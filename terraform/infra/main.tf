@@ -23,13 +23,35 @@ resource "google_container_cluster" "gpu" {
   enable_l4_ilb_subsetting    = true
 
   node_config {
-    machine_type = "e2-small"
+    machine_type = var.gke_cpu_machine_type
     oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
   }
 }
 
+locals {
+  cluster_name          = var.cluster_exists
+    ? data.google_container_cluster.existing[0].name
+    : google_container_cluster.gpu[0].name
+
+  cluster_endpoint      = var.cluster_exists
+    ? data.google_container_cluster.existing[0].endpoint
+    : google_container_cluster.gpu[0].endpoint
+
+  cluster_ca_certificate = var.cluster_exists
+    ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate
+    : google_container_cluster.gpu[0].master_auth[0].cluster_ca_certificate
+}
+
+output "cluster_endpoint" {
+  value = local.cluster_endpoint
+}
+
+output "cluster_ca_certificate" {
+  value = local.cluster_ca_certificate
+}
+
 # ────────────────────────────────────────────────────────────────────
-# CPU node‐pool (for Prometheus, Cloud Run, etc.)
+# CPU node‐pool (for Cloud Run, monitoring, etc.)
 # ────────────────────────────────────────────────────────────────────
 resource "google_container_node_pool" "cpu_pool" {
   count    = var.cluster_exists ? 0 : 1
@@ -40,7 +62,7 @@ resource "google_container_node_pool" "cpu_pool" {
   initial_node_count = 1
 
   node_config {
-    machine_type = "var.gke_gpu_type"
+    machine_type = var.gke_cpu_machine_type
     oauth_scopes = [
       "https://www.googleapis.com/auth/logging.write",
       "https://www.googleapis.com/auth/monitoring",
@@ -75,8 +97,8 @@ resource "google_container_node_pool" "gpu_pool" {
   node_locations = var.gke_gpu_zones
 
   node_config {
-    machine_type   = var.gke_machine_type
-    oauth_scopes   = [
+    machine_type = var.gke_gpu_machine_type
+    oauth_scopes = [
       "https://www.googleapis.com/auth/logging.write",
       "https://www.googleapis.com/auth/monitoring",
       "https://www.googleapis.com/auth/devstorage.read_only",
@@ -111,18 +133,4 @@ resource "google_container_node_pool" "gpu_pool" {
       node_config[0].metadata,
     ]
   }
-}
-
-locals {
-  cluster_name          = var.cluster_exists ? data.google_container_cluster.existing[0].name      : google_container_cluster.gpu[0].name
-  cluster_endpoint      = var.cluster_exists ? data.google_container_cluster.existing[0].endpoint  : google_container_cluster.gpu[0].endpoint
-  cluster_ca_certificate = var.cluster_exists ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate : google_container_cluster.gpu[0].master_auth[0].cluster_ca_certificate
-}
-
-output "cluster_endpoint" {
-  value = local.cluster_endpoint
-}
-
-output "cluster_ca_certificate" {
-  value = local.cluster_ca_certificate
 }
