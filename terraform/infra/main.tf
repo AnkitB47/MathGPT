@@ -3,7 +3,7 @@ provider "google" {
   region  = var.region
 }
 
-# If re-using an existing cluster, pull its data
+# Reuse existing cluster if asked
 data "google_container_cluster" "existing" {
   count    = var.cluster_exists ? 1 : 0
   name     = var.gke_cluster_name
@@ -28,6 +28,40 @@ resource "google_container_cluster" "gpu" {
   }
 }
 
+# ────────────────────────────────────────────────────────────────────
+# CPU node‐pool (for Prometheus, Cloud Run, etc.)
+# ────────────────────────────────────────────────────────────────────
+resource "google_container_node_pool" "cpu_pool" {
+  count    = var.cluster_exists ? 0 : 1
+  cluster  = local.cluster_name
+  location = var.region
+  name     = "${var.gke_cluster_name}-cpu-pool"
+
+  initial_node_count = 1
+
+  node_config {
+    machine_type = "var.gke_gpu_type"
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/logging.write",
+      "https://www.googleapis.com/auth/monitoring",
+      "https://www.googleapis.com/auth/devstorage.read_only",
+    ]
+  }
+
+  autoscaling {
+    min_node_count = 1
+    max_node_count = 3
+  }
+
+  timeouts {
+    create = "15m"
+    delete = "10m"
+  }
+}
+
+# ────────────────────────────────────────────────────────────────────
+# GPU node‐pool (for your GPU workloads)
+# ────────────────────────────────────────────────────────────────────
 resource "google_container_node_pool" "gpu_pool" {
   count    = var.cluster_exists ? 0 : 1
   cluster  = local.cluster_name
@@ -80,8 +114,8 @@ resource "google_container_node_pool" "gpu_pool" {
 }
 
 locals {
-  cluster_name          = var.cluster_exists ? data.google_container_cluster.existing[0].name : google_container_cluster.gpu[0].name
-  cluster_endpoint      = var.cluster_exists ? data.google_container_cluster.existing[0].endpoint : google_container_cluster.gpu[0].endpoint
+  cluster_name          = var.cluster_exists ? data.google_container_cluster.existing[0].name      : google_container_cluster.gpu[0].name
+  cluster_endpoint      = var.cluster_exists ? data.google_container_cluster.existing[0].endpoint  : google_container_cluster.gpu[0].endpoint
   cluster_ca_certificate = var.cluster_exists ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate : google_container_cluster.gpu[0].master_auth[0].cluster_ca_certificate
 }
 

@@ -2,7 +2,7 @@
 // terraform/apps/main.tf
 // ────────────────────────────────────────────────────────────────────
 
-// 0) Infra outputs
+// 0) Read outputs from the infra GCS backend
 data "terraform_remote_state" "infra" {
   backend = "gcs"
   config = {
@@ -11,7 +11,7 @@ data "terraform_remote_state" "infra" {
   }
 }
 
-// 1) GCP + k8s + Helm providers
+// 1) Google provider (only once)
 provider "google" {
   project = var.project_id
   region  = var.region
@@ -19,12 +19,13 @@ provider "google" {
 
 data "google_client_config" "default" {}
 
-// Service Account & IAM for Cloud Run
+// 2) Reference the deployer SA that infra has created
 data "google_service_account" "deployer" {
   project    = var.project_id
   account_id = "mathsgpt-deployer"
 }
 
+// 3) Kubernetes provider (with optional gke_gcloud_auth_plugin)
 provider "kubernetes" {
   host                   = "https://${data.terraform_remote_state.infra.outputs.cluster_endpoint}"
   cluster_ca_certificate = base64decode(data.terraform_remote_state.infra.outputs.cluster_ca_certificate)
@@ -34,9 +35,12 @@ provider "kubernetes" {
     content {
       api_version = "client.authentication.k8s.io/v1"
       command     = "gcloud"
-      args = [
+      args        = [
         "container", "clusters", "get-credentials",
-        var.gke_cluster_name, "--region", var.region, "--project", var.project_id, "--quiet",
+        var.gke_cluster_name,
+        "--region=${var.region}",
+        "--project=${var.project_id}",
+        "--quiet",
       ]
     }
   }
@@ -44,6 +48,7 @@ provider "kubernetes" {
   token = data.google_client_config.default.access_token
 }
 
+// 4) Helm provider (reuses the same k8s block)
 provider "helm" {
   kubernetes {
     host                   = "https://${data.terraform_remote_state.infra.outputs.cluster_endpoint}"
@@ -54,9 +59,12 @@ provider "helm" {
       content {
         api_version = "client.authentication.k8s.io/v1"
         command     = "gcloud"
-        args = [
+        args        = [
           "container", "clusters", "get-credentials",
-          var.gke_cluster_name, "--region", var.region, "--project", var.project_id, "--quiet",
+          var.gke_cluster_name,
+          "--region=${var.region}",
+          "--project=${var.project_id}",
+          "--quiet",
         ]
       }
     }
@@ -65,7 +73,7 @@ provider "helm" {
   }
 }
 
-// 2) IAM bindings for the deployer SA
+// 5) Grant exactly the IAM roles the deployer SA needs to manage Cloud Run & GKE
 resource "google_project_iam_member" "run_admin" {
   project = var.project_id
   role    = "roles/run.admin"
@@ -97,7 +105,7 @@ resource "google_project_iam_member" "storage_admin" {
   member  = "serviceAccount:${data.google_service_account.deployer.email}"
 }
 
-// 3) Cloud Run “cpu” service
+// 6) Deploy your CPU‐based Cloud Run service
 resource "google_cloud_run_service" "cpu" {
   name     = var.service_name
   location = var.region
@@ -138,14 +146,14 @@ resource "google_cloud_run_service" "cpu" {
 }
 
 resource "google_cloud_run_service_iam_member" "cpu_public" {
-  location = var.region
   project  = var.project_id
+  location = var.region
   service  = google_cloud_run_service.cpu.name
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
 
-// 4) The monitoring namespace
+// 7) Ensure the monitoring namespace exists (so it won’t hang terminating)
 resource "kubernetes_namespace" "monitoring" {
   metadata {
     name = "monitoring"
@@ -155,7 +163,7 @@ resource "kubernetes_namespace" "monitoring" {
   }
 }
 
-// 5) Install CRDs (no tolerations needed once you remove the pool taint)
+// 8) Install the CRDs
 resource "helm_release" "prometheus_operator_crds" {
   depends_on       = [ kubernetes_namespace.monitoring ]
   name             = "prometheus-operator-crds"
@@ -170,7 +178,7 @@ resource "helm_release" "prometheus_operator_crds" {
   timeout = 600
 }
 
-// 6) Main kube-prometheus-stack
+// 9) Install the main stack
 resource "helm_release" "prom_stack" {
   depends_on       = [ helm_release.prometheus_operator_crds ]
   name             = "kube-prometheus-stack"
@@ -184,9 +192,9 @@ resource "helm_release" "prom_stack" {
 
   wait           = true
   wait_for_jobs  = false
-  timeout        = 1800  // 30m
+  timeout        = 1800  # 30m
 
-  // storage & retention tweaks
+  // storage & retention settings
   set {
     name  = "grafana.service.type"
     value = "LoadBalancer"
