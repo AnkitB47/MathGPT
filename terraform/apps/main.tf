@@ -60,30 +60,30 @@ provider "helm" {
 }
 
 // 2) Service Account & IAM for Cloud Run
-resource "google_service_account" "deployer" {
-  account_id   = "mathsgpt-deployer"
-  display_name = "MathsGPT Deployer"
+data "google_service_account" "deployer" {
+  project    = var.project_id
+  account_id = "mathsgpt-deployer"
 }
 
 resource "google_project_iam_member" "run_admin" {
   project = var.project_id
   role    = "roles/run.admin"
-  member  = "serviceAccount:${google_service_account.deployer.email}"
+  member  = "serviceAccount:${data.google_service_account.deployer.email}"
 }
 resource "google_project_iam_member" "run_invoker" {
   project = var.project_id
   role    = "roles/run.invoker"
-  member  = "serviceAccount:${google_service_account.deployer.email}"
+  member  = "serviceAccount:${data.google_service_account.deployer.email}"
 }
 resource "google_project_iam_member" "service_account_user" {
   project = var.project_id
   role    = "roles/iam.serviceAccountUser"
-  member  = "serviceAccount:${google_service_account.deployer.email}"
+  member  = "serviceAccount:${data.google_service_account.deployer.email}"
 }
 resource "google_project_iam_member" "k8s_admin" {
   project = var.project_id
   role    = "roles/container.admin"
-  member  = "serviceAccount:${google_service_account.deployer.email}"
+  member  = "serviceAccount:${data.google_service_account.deployer.email}"
 }
 
 // 3) Cloud Run “cpu” service
@@ -98,7 +98,7 @@ resource "google_cloud_run_service" "cpu" {
       }
     }
     spec {
-      service_account_name = google_service_account.deployer.email
+      service_account_name = data.google_service_account.deployer.email
       containers {
         image = var.container_image_cpu
         ports {
