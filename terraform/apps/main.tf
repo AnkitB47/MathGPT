@@ -170,7 +170,7 @@ resource "helm_release" "prometheus_operator_crds" {
   timeout = 600
 }
 
-// 6) Main kube-prometheus-stack, pinned to your (now un-tainted) GPU pool
+// 6) Main kube-prometheus-stack
 resource "helm_release" "prom_stack" {
   depends_on       = [ helm_release.prometheus_operator_crds ]
   name             = "kube-prometheus-stack"
@@ -185,20 +185,6 @@ resource "helm_release" "prom_stack" {
   wait           = true
   wait_for_jobs  = false
   timeout        = 1800  // 30m
-
-  // pin everything onto your GPU node-pool (untainted)
-  set {
-    name  = "global.nodeSelector.cloud\\.google\\.com/gke-nodepool"
-    value = "${var.gke_cluster_name}-gpu-pool"
-  }
-  set {
-    name  = "prometheusOperator.nodeSelector.cloud\\.google\\.com/gke-nodepool"
-    value = "${var.gke_cluster_name}-gpu-pool"
-  }
-  set {
-    name  = "prometheus.prometheusSpec.nodeSelector.cloud\\.google\\.com/gke-nodepool"
-    value = "${var.gke_cluster_name}-gpu-pool"
-  }
 
   // storage & retention tweaks
   set {
