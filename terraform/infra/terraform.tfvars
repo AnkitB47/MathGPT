@@ -1,5 +1,6 @@
 project_id       = "mathgpt-458012"
 region           = "europe-west4"
+service_name = "mathsgpt"
 gke_cluster_name = "mathsgpt-gpu-cluster"
 cluster_exists   = false
 gke_machine_type = "n1-standard-4"

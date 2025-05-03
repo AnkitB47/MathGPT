@@ -7,9 +7,11 @@ variable "project_id" {
 }
 
 variable "service_name" {
-  description = "Cloud Run service name"
   type        = string
+  default     = "mathsgpt"
+  description = "Cloud Run service name"
 }
+
 
 // ───────────────────────────────────────────────────────────────────
 // Cloud Run defaults
