@@ -1,9 +1,18 @@
+terraform {
+  required_providers {
+    google = {
+      source  = "hashicorp/google"
+      version = "~> 4.0"
+    }
+  }
+}
+
 provider "google" {
   project = var.project_id
   region  = var.region
 }
 
-# If reusing an existing cluster, read it.
+# 0) If re-using an existing cluster, read its data
 data "google_container_cluster" "existing" {
   count    = var.cluster_exists ? 1 : 0
   name     = var.gke_cluster_name
@@ -11,24 +20,39 @@ data "google_container_cluster" "existing" {
   project  = var.project_id
 }
 
-# Create (or skip) the GKE cluster itself.
+# 1) Create GKE cluster (skip if cluster_exists=true)
 resource "google_container_cluster" "gpu_cluster" {
   count                    = var.cluster_exists ? 0 : 1
   name                     = var.gke_cluster_name
   location                 = var.region
   remove_default_node_pool = true
-  initial_node_count       = 0
+  initial_node_count       = 1
+
+  node_config {
+    machine_type = var.gke_cpu_machine_type
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform",
+    ]
+  }
 
   enable_shielded_nodes       = true
   enable_intranode_visibility = true
   enable_l4_ilb_subsetting    = true
 }
 
-# Expose the actual cluster name/endpoint/cert, either new or existing
+# 2) Expose either the new or existing cluster’s endpoint/CA cert
 locals {
-  cluster_name           = var.cluster_exists ? data.google_container_cluster.existing[0].name : google_container_cluster.gpu[0].name
-  cluster_endpoint       = var.cluster_exists ? data.google_container_cluster.existing[0].endpoint : google_container_cluster.gpu[0].endpoint
-  cluster_ca_certificate = var.cluster_exists ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate : google_container_cluster.gpu[0].master_auth[0].cluster_ca_certificate
+  cluster_name = var.cluster_exists
+    ? data.google_container_cluster.existing[0].name
+    : google_container_cluster.gpu_cluster[0].name
+
+  cluster_endpoint = var.cluster_exists
+    ? data.google_container_cluster.existing[0].endpoint
+    : google_container_cluster.gpu_cluster[0].endpoint
+
+  cluster_ca_certificate = var.cluster_exists
+    ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate
+    : google_container_cluster.gpu_cluster[0].master_auth[0].cluster_ca_certificate
 }
 
 output "cluster_endpoint" {
@@ -39,9 +63,7 @@ output "cluster_ca_certificate" {
   value = local.cluster_ca_certificate
 }
 
-# ───────────────────────────────────────────────────────────────────
-# CPU node-pool (for Cloud Run, Prometheus, etc.)
-# ───────────────────────────────────────────────────────────────────
+# 3) CPU node-pool (for general workloads, Prometheus, Cloud Run, etc.)
 resource "google_container_node_pool" "cpu_pool" {
   count    = var.cluster_exists ? 0 : 1
   name     = "${var.gke_cluster_name}-cpu-pool"
@@ -70,9 +92,7 @@ resource "google_container_node_pool" "cpu_pool" {
   }
 }
 
-# ───────────────────────────────────────────────────────────────────
-# GPU node-pool (tainted so only GPU pods land here)
-# ───────────────────────────────────────────────────────────────────
+# 4) GPU node-pool (tainted so only GPU-workloads land)
 resource "google_container_node_pool" "gpu_pool" {
   count    = var.cluster_exists ? 0 : 1
   name     = "${var.gke_cluster_name}-gpu-pool"
