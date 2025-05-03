@@ -1,9 +1,13 @@
+terraform {
+  required_version = ">= 1.2"
+  backend "gcs" {}
+}
+
 provider "google" {
   project = var.project_id
   region  = var.region
 }
 
-# If re-using an existing cluster, pull its data
 data "google_container_cluster" "existing" {
   count    = var.cluster_exists ? 1 : 0
   name     = var.gke_cluster_name
@@ -11,7 +15,6 @@ data "google_container_cluster" "existing" {
   project  = var.project_id
 }
 
-# Primary GKE cluster (only created if !var.cluster_exists)
 resource "google_container_cluster" "gpu" {
   count                    = var.cluster_exists ? 0 : 1
   name                     = var.gke_cluster_name
@@ -19,24 +22,20 @@ resource "google_container_cluster" "gpu" {
   remove_default_node_pool = true
   initial_node_count       = 1
 
-  enable_shielded_nodes       = true
-  enable_intranode_visibility = true
-  enable_l4_ilb_subsetting    = true
-
   node_config {
     machine_type = var.gke_cpu_machine_type
-    oauth_scopes = [
-      "https://www.googleapis.com/auth/cloud-platform",
-    ]
+    oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
   }
+
+  # … any other cluster settings …
 }
 
-# CPU node-pool for general workloads
 resource "google_container_node_pool" "cpu_pool" {
-  count       = var.cluster_exists ? 0 : 1
-  cluster     = local.cluster_name
-  location    = var.region
-  name        = "${var.gke_cluster_name}-cpu-pool"
+  count    = var.cluster_exists ? 0 : 1
+  cluster  = local.cluster_name
+  location = var.region
+  name     = "${var.gke_cluster_name}-cpu-pool"
+
   node_config {
     machine_type = var.gke_cpu_machine_type
     oauth_scopes = [
@@ -45,28 +44,23 @@ resource "google_container_node_pool" "cpu_pool" {
       "https://www.googleapis.com/auth/devstorage.read_only",
     ]
   }
+
   autoscaling {
     min_node_count = 1
     max_node_count = var.gke_cpu_max_nodes
   }
+
   timeouts {
     create = "15m"
     delete = "10m"
   }
 }
 
-# GPU node-pool for your GPU workloads
 resource "google_container_node_pool" "gpu_pool" {
-  count       = var.cluster_exists ? 0 : 1
-  cluster     = local.cluster_name
-  location    = var.region
-  name        = "${var.gke_cluster_name}-gpu-pool"
-
-  autoscaling {
-    min_node_count = 1
-    max_node_count = var.gke_gpu_max_nodes
-  }
-  node_locations = var.gke_gpu_zones
+  count    = var.cluster_exists ? 0 : 1
+  cluster  = local.cluster_name
+  location = var.region
+  name     = "${var.gke_cluster_name}-gpu-pool"
 
   node_config {
     machine_type = var.gke_gpu_machine_type
@@ -92,10 +86,17 @@ resource "google_container_node_pool" "gpu_pool" {
       effect = "NO_SCHEDULE"
     }
   }
+
+  autoscaling {
+    min_node_count = 1
+    max_node_count = var.gke_gpu_max_nodes
+  }
+
   timeouts {
     create = "30m"
     delete = "20m"
   }
+
   lifecycle {
     create_before_destroy = true
     ignore_changes = [
@@ -105,19 +106,18 @@ resource "google_container_node_pool" "gpu_pool" {
   }
 }
 
-# Correctly-formed ternary locals
 locals {
-  cluster_name = var.cluster_exists
-    ? data.google_container_cluster.existing[0].name
-    : google_container_cluster.gpu[0].name
+  cluster_name = var.cluster_exists ?
+    data.google_container_cluster.existing[0].name :
+    google_container_cluster.gpu[0].name
 
-  cluster_endpoint = var.cluster_exists
-    ? data.google_container_cluster.existing[0].endpoint
-    : google_container_cluster.gpu[0].endpoint
+  cluster_endpoint = var.cluster_exists ?
+    data.google_container_cluster.existing[0].endpoint :
+    google_container_cluster.gpu[0].endpoint
 
-  cluster_ca_certificate = var.cluster_exists
-    ? data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate
-    : google_container_cluster.gpu[0].master_auth[0].cluster_ca_certificate
+  cluster_ca_certificate = var.cluster_exists ?
+    data.google_container_cluster.existing[0].master_auth[0].cluster_ca_certificate :
+    google_container_cluster.gpu[0].master_auth[0].cluster_ca_certificate
 }
 
 output "cluster_endpoint" {
