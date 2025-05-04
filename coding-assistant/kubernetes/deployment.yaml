@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: coding-assistant
+  namespace: gpu-assistant
   labels:
     app: mathsgpt-gpu
 spec:
@@ -28,19 +29,13 @@ spec:
       # schedule onto your un-tainted monitor-pool
       nodeSelector:
         cloud.google.com/gke-nodepool: "mathsgpt-gpu-cluster-gpu-pool"
-        cloud.google.com/gke-accelerator: "nvidia-tesla-t4"
       containers:
         - name: coding-assistant
           image: docker.io/ankitb47/maths-gpt:gpu_v1
           imagePullPolicy: Always
           ports:
             - containerPort: 8501
-          readinessProbe:
-            httpGet:
-              path: /health
-              port: 8501
-            initialDelaySeconds: 30
-            periodSeconds: 10
+
           resources:
             requests:
               cpu: "2"

@@ -1,3 +1,4 @@
+# .github/workflows/deploy-gpu.yml
 name: 🖥️ Deploy GPU Assistant
 
 on:
@@ -24,9 +25,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          fetch-depth: 1       # shallow clone
-          submodules: false    # no submodules
-          lfs: false           # skip LFS
+          fetch-depth: 1
+          submodules: false
+          lfs: false
           persist-credentials: false
 
       - name: Authenticate to GCP
@@ -51,14 +52,20 @@ jobs:
       - name: Create namespace
         run: |
           kubectl create namespace ${{ env.NAMESPACE }} \
-            --dry-run=client -o yaml \
-          | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Ensure ServiceAccount exists
+        run: |
+          cat <<EOF | kubectl apply -n ${{ env.NAMESPACE }} -f -
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: mathsgpt-deployer
+            namespace: ${{ env.NAMESPACE }}
+          EOF
 
       - name: Deploy GPU workloads
         run: |
-          # patch in the real node-pool name
-          sed -i "s|<YOUR_NODE_POOL>|${NODEPOOL}|g" coding-assistant/kubernetes/deployment.yaml
-
           # apply Deployment and Service
           kubectl apply -n ${{ env.NAMESPACE }} \
             -f coding-assistant/kubernetes/deployment.yaml \
