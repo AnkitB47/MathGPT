@@ -94,7 +94,7 @@ resource "google_container_node_pool" "gpu_pool" {
       count = 1
     }
 
-    preemptible  = false
+    preemptible  = true
     disk_size_gb = 30
     disk_type    = "pd-balanced"
 
