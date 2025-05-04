@@ -34,23 +34,29 @@ jobs:
           cluster_name: ${{ env.CLUSTER }}
           location:     ${{ env.REGION }}
 
-      - name: Check for GPU node-pool
-        id: checkpool
+      - name: Verify GPU node-pool exists
+        id: verify_pool
         run: |
           if gcloud container node-pools list \
                --cluster="$CLUSTER" \
                --region="$REGION" \
                --format="value(name)" \
-             | grep -q "^${NODEPOOL}$"; then
-            echo "gpu_pool_exists=true" >> $GITHUB_OUTPUT
+             | grep -xq "${NODEPOOL}"; then
+            echo "::set-output name=exists::true"
           else
-            echo "gpu_pool_exists=false" >> $GITHUB_OUTPUT
+            echo "::set-output name=exists::false"
           fi
 
-      - name: Wait for GPU nodes (if pool exists)
-        if: steps.checkpool.outputs.gpu_pool_exists == 'true'
+      - name: Fail if GPU pool missing
+        if: steps.verify_pool.outputs.exists == 'false'
         run: |
-          echo "→ Waiting for GPU nodes from pool $NODEPOOL…"
+          echo "❌ GPU node-pool '${NODEPOOL}' not found in cluster '${CLUSTER}'."
+          echo "   Please ensure your Terraform infra created it successfully."
+          exit 1
+
+      - name: Wait for GPU nodes
+        run: |
+          echo "→ Waiting for GPU nodes in pool ${NODEPOOL}…"
           kubectl wait \
             --for=condition=Ready nodes \
             --selector=cloud.google.com/gke-nodepool=${NODEPOOL} \
@@ -64,7 +70,6 @@ jobs:
 
       - name: Deploy GPU workloads
         run: |
-          # patch your k8s yamls to point at right node-pool:
           sed -i "s|<YOUR_NODE_POOL>|${NODEPOOL}|g" coding-assistant/kubernetes/deployment.yaml
           kubectl apply -f coding-assistant/kubernetes/deployment.yaml -n ${{ env.NAMESPACE }}
           kubectl apply -f coding-assistant/kubernetes/service.yaml    -n ${{ env.NAMESPACE }}
