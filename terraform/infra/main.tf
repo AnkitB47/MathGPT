@@ -15,9 +15,11 @@ data "google_container_cluster" "existing" {
 resource "google_container_cluster" "gpu_cluster" {
   count                    = var.cluster_exists ? 0 : 1
   name                     = var.gke_cluster_name
-  location                 = var.gke_gpu_zones
+  location                 = var.region
   remove_default_node_pool = true
   initial_node_count       = 1
+
+  locations                = var.gke_gpu_zones           # ← list of zones
 
   node_config {
     machine_type = var.gke_cpu_machine_type

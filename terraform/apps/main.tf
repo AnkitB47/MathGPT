@@ -37,7 +37,7 @@ provider "kubernetes" {
       args        = [
         "container", "clusters", "get-credentials",
         var.gke_cluster_name,
-        "--region=${var.gke_gpu_zones}",
+        "--region=${var.region}",
         "--project=${var.project_id}",
         "--quiet",
       ]
@@ -61,7 +61,7 @@ provider "helm" {
         args        = [
           "container", "clusters", "get-credentials",
           var.gke_cluster_name,
-          "--region=${var.gke_gpu_zones}",
+          "--region=${var.region}",
           "--project=${var.project_id}",
           "--quiet",
         ]
