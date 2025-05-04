@@ -17,7 +17,7 @@ jobs:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION:     ${{ secrets.GCP_REGION }}
       CLUSTER:    ${{ secrets.GKE_CLUSTER_NAME }}
-      NODEPOOL:   ${{ secrets.GKE_CLUSTER_NAME }}-gpu-pool
+      NODEPOOL:   mathsgpt-gpu-cluster-gpu-pool
       NAMESPACE:  gpu-assistant
 
     steps:
@@ -34,27 +34,7 @@ jobs:
           cluster_name: ${{ env.CLUSTER }}
           location:     ${{ env.REGION }}
 
-      - name: Verify GPU node-pool exists
-        id: verify_pool
-        run: |
-          if gcloud container node-pools list \
-               --cluster="$CLUSTER" \
-               --region="$REGION" \
-               --format="value(name)" \
-             | grep -xq "${NODEPOOL}"; then
-            echo "::set-output name=exists::true"
-          else
-            echo "::set-output name=exists::false"
-          fi
-
-      - name: Fail if GPU pool missing
-        if: steps.verify_pool.outputs.exists == 'false'
-        run: |
-          echo "❌ GPU node-pool '${NODEPOOL}' not found in cluster '${CLUSTER}'."
-          echo "   Please ensure your Terraform infra created it successfully."
-          exit 1
-
-      - name: Wait for GPU nodes
+      - name: Wait for GPU nodes ready
         run: |
           echo "→ Waiting for GPU nodes in pool ${NODEPOOL}…"
           kubectl wait \
@@ -70,11 +50,17 @@ jobs:
 
       - name: Deploy GPU workloads
         run: |
+          # patch in the real node-pool name
           sed -i "s|<YOUR_NODE_POOL>|${NODEPOOL}|g" coding-assistant/kubernetes/deployment.yaml
-          kubectl apply -f coding-assistant/kubernetes/deployment.yaml -n ${{ env.NAMESPACE }}
-          kubectl apply -f coding-assistant/kubernetes/service.yaml    -n ${{ env.NAMESPACE }}
+
+          kubectl apply -n ${{ env.NAMESPACE }} \
+            -f coding-assistant/kubernetes/deployment.yaml \
+            -f coding-assistant/kubernetes/service.yaml
+
+      - name: Wait for rollout
+        run: |
           kubectl rollout status deployment/coding-assistant \
-            -n ${{ env.NAMESPACE }} --timeout=300s
+            -n ${{ env.NAMESPACE }} --timeout=5m
 
       - name: Show GPU service IP
         run: |
