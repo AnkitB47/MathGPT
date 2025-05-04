@@ -2,7 +2,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: coding-assistant
+  name: 🖥️ Deploy GPU Assistant
 spec:
   replicas: 1
   selector:
