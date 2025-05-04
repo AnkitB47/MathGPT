@@ -19,8 +19,6 @@ resource "google_container_cluster" "gpu_cluster" {
   remove_default_node_pool = true
   initial_node_count       = 1
 
-  locations = var.gke_gpu_zones           # ← list of zones
-
   node_config {
     machine_type = var.gke_cpu_machine_type
     oauth_scopes = ["https://www.googleapis.com/auth/cloud-platform"]
