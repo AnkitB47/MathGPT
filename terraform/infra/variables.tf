@@ -60,7 +60,7 @@ variable "gke_gpu_type" {
 variable "gke_gpu_max_nodes" {
   description = "Maximum size for the GPU node-pool"
   type        = number
-  default     = 1
+  default     = 2
 }
 
 variable "gke_gpu_zones" {
