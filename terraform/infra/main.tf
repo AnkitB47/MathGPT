@@ -65,6 +65,7 @@ resource "google_container_node_pool" "gpu_pool" {
 
   node_config {
     machine_type = var.gke_gpu_machine_type
+    preemptible  = true
     disk_size_gb = 30
     disk_type    = "pd-balanced"
 
@@ -89,11 +90,6 @@ resource "google_container_node_pool" "gpu_pool" {
       value  = "present"
       effect = "NO_SCHEDULE"
     }
-  }
-
-  scheduling {
-    preemptible        = true
-    provisioning_model = "SPOT"
   }
 
   autoscaling {
