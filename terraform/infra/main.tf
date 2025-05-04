@@ -119,8 +119,6 @@ resource "google_container_node_pool" "gpu_pool" {
     max_node_count = var.gke_gpu_max_nodes
   }
 
-  node_locations = var.gke_gpu_zones
-
   timeouts {
     create = "30m"
     delete = "20m"
