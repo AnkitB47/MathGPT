@@ -109,6 +109,8 @@ resource "google_container_node_pool" "gpu_pool" {
     }
   }
 
+  initial_node_count = 1
+
   autoscaling {
     min_node_count = 1
     max_node_count = var.gke_gpu_max_nodes
