@@ -13,6 +13,7 @@ permissions:
 jobs:
   deploy-gpu:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       REGION:     ${{ secrets.GCP_REGION }}
@@ -22,6 +23,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 1       # shallow clone
+          submodules: false    # no submodules
+          lfs: false           # skip LFS
+          persist-credentials: false
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v1
@@ -53,6 +59,7 @@ jobs:
           # patch in the real node-pool name
           sed -i "s|<YOUR_NODE_POOL>|${NODEPOOL}|g" coding-assistant/kubernetes/deployment.yaml
 
+          # apply Deployment and Service
           kubectl apply -n ${{ env.NAMESPACE }} \
             -f coding-assistant/kubernetes/deployment.yaml \
             -f coding-assistant/kubernetes/service.yaml
