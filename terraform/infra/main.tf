@@ -19,7 +19,7 @@ resource "google_container_cluster" "gpu_cluster" {
   remove_default_node_pool = true
   initial_node_count       = 1
 
-  locations                = var.gke_gpu_zones           # ← list of zones
+  locations = var.gke_gpu_zones           # ← list of zones
 
   node_config {
     machine_type = var.gke_cpu_machine_type
@@ -81,6 +81,7 @@ resource "google_container_node_pool" "gpu_pool" {
   name     = "${var.gke_cluster_name}-gpu-pool"
   cluster  = local.cluster_name
   location = var.region
+  node_locations = var.gke_gpu_zones
 
   node_config {
     machine_type = var.gke_gpu_machine_type
