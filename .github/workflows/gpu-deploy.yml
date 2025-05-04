@@ -1,67 +1,32 @@
-name: 🚀 Deploy GPU Assistant
-
-on:
-  workflow_dispatch:
-  workflow_run:
-    workflows: ["🛠 Terraform Deploy"]
-    types: [completed]
-
-permissions:
-  contents: read
-  id-token: write
-
-jobs:
-  deploy-gpu:
-    runs-on: ubuntu-latest
-    env:
-      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      REGION:     ${{ secrets.GCP_REGION }}
-      CLUSTER:    ${{ secrets.GKE_CLUSTER_NAME }}
-      NODEPOOL:   mathsgpt-gpu-cluster-gpu-pool
-      NAMESPACE:  gpu-assistant
-
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Authenticate to GCP
-        uses: google-github-actions/auth@v1
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Fetch GKE credentials
-        uses: google-github-actions/get-gke-credentials@v1
-        with:
-          cluster_name: ${{ env.CLUSTER }}
-          location:     ${{ env.REGION }}
-
-      - name: Wait for GPU nodes ready
-        run: |
-          kubectl wait \
-            --for=condition=Ready nodes \
-            --selector=cloud.google.com/gke-nodepool=${{ env.NODEPOOL }} \
-            --timeout=10m
-
-      - name: Create namespace
-        run: |
-          kubectl create namespace ${{ env.NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Deploy GPU assistant
-        run: |
-          # inject the correct node-pool name
-          sed -i "s|<YOUR_NODE_POOL>|${{ env.NODEPOOL }}|g" coding-assistant/kubernetes/deployment.yaml
-
-          # apply both Deployment and Service
-          kubectl apply -n ${{ env.NAMESPACE }} \
-            -f coding-assistant/kubernetes/deployment.yaml \
-            -f coding-assistant/kubernetes/service.yaml
-
-      - name: Wait for rollout
-        run: |
-          kubectl rollout status deployment/coding-assistant \
-            -n ${{ env.NAMESPACE }} --timeout=5m
-
-      - name: Show LoadBalancer IP
-        run: |
-          echo "GPU LB IP → $(kubectl get svc coding-assistant \
-            -n ${{ env.NAMESPACE }} -o jsonpath='{.status.loadBalancer.ingress[0].ip}')"
+# coding-assistant/kubernetes/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: coding-assistant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: coding-assistant
+  template:
+    metadata:
+      labels:
+        app: coding-assistant
+    spec:
+      # Schedule pods onto the GPU node-pool
+      nodeSelector:
+        cloud.google.com/gke-nodepool: "mathsgpt-gpu-cluster-gpu-pool"
+      # Allow pods to tolerate the GPU taint
+      tolerations:
+        - key: "nvidia.com/gpu"
+          operator: "Exists"
+          effect: "NoSchedule"
+      containers:
+        - name: coding-assistant
+          image: docker.io/ankitb47/mathsgpt-gpu:latest
+          ports:
+            - containerPort: 8501
+          resources:
+            limits:
+              # Request one GPU
+              nvidia.com/gpu: 1
