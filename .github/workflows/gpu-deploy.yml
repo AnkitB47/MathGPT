@@ -6,6 +6,10 @@ on:
     types: [completed]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   deploy-gpu:
     runs-on: ubuntu-latest
@@ -24,17 +28,29 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Install gcloud & get creds
+      - name: Fetch GKE credentials
         uses: google-github-actions/get-gke-credentials@v1
         with:
           cluster_name: ${{ env.CLUSTER }}
           location:     ${{ env.REGION }}
-          credentials: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Wait for GPU nodes
+      - name: Check for GPU node-pool
+        id: checkpool
         run: |
-          echo "→ GPU nodes ready?"
-          kubectl get nodes --show-labels
+          if gcloud container node-pools list \
+               --cluster="$CLUSTER" \
+               --region="$REGION" \
+               --format="value(name)" \
+             | grep -q "^${NODEPOOL}$"; then
+            echo "gpu_pool_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "gpu_pool_exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Wait for GPU nodes (if pool exists)
+        if: steps.checkpool.outputs.gpu_pool_exists == 'true'
+        run: |
+          echo "→ Waiting for GPU nodes from pool $NODEPOOL…"
           kubectl wait \
             --for=condition=Ready nodes \
             --selector=cloud.google.com/gke-nodepool=${NODEPOOL} \
@@ -43,17 +59,19 @@ jobs:
       - name: Create namespace
         run: |
           kubectl create namespace ${{ env.NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml \
+          | kubectl apply -f -
 
       - name: Deploy GPU workloads
         run: |
+          # patch your k8s yamls to point at right node-pool:
           sed -i "s|<YOUR_NODE_POOL>|${NODEPOOL}|g" coding-assistant/kubernetes/deployment.yaml
           kubectl apply -f coding-assistant/kubernetes/deployment.yaml -n ${{ env.NAMESPACE }}
           kubectl apply -f coding-assistant/kubernetes/service.yaml    -n ${{ env.NAMESPACE }}
           kubectl rollout status deployment/coding-assistant \
             -n ${{ env.NAMESPACE }} --timeout=300s
 
-      - name: Show GPU LB IP
+      - name: Show GPU service IP
         run: |
           echo "GPU LB IP → $(kubectl get svc coding-assistant \
             -n ${{ env.NAMESPACE }} \
