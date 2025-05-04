@@ -1,70 +1,55 @@
-// ───────────────────────────────────────────────────────────────────
-// Required inputs
-// ───────────────────────────────────────────────────────────────────
+# Project & region
 variable "project_id" {
-  description = "GCP project ID"
   type        = string
+  description = "GCP project ID"
 }
 
 variable "region" {
-  description = "GCP region for GKE & node-pools"
   type        = string
+  description = "GCP region for GKE"
   default     = "europe-west4"
 }
 
 variable "gke_cluster_name" {
-  description = "Name of the GKE cluster"
   type        = string
+  description = "Name of the GKE cluster"
   default     = "mathsgpt-gpu-cluster"
 }
 
-// ───────────────────────────────────────────────────────────────────
-// Cluster reuse flag
-// ───────────────────────────────────────────────────────────────────
-variable "cluster_exists" {
-  description = "If true, reuse an existing cluster instead of creating a new one"
-  type        = bool
-  default     = false
-}
-
-// ───────────────────────────────────────────────────────────────────
-// CPU node-pool sizing
-// ───────────────────────────────────────────────────────────────────
+# CPU node-pool sizing
 variable "gke_cpu_machine_type" {
-  description = "Machine type for the CPU node-pool"
   type        = string
+  description = "Machine type for the CPU node-pool"
   default     = "e2-small"
 }
 
 variable "gke_cpu_max_nodes" {
-  description = "Maximum size for the CPU node-pool"
   type        = number
+  description = "Max nodes in CPU pool"
   default     = 3
 }
 
-// ───────────────────────────────────────────────────────────────────
-// GPU node-pool sizing
-// ───────────────────────────────────────────────────────────────────
+# GPU node-pool sizing
 variable "gke_gpu_machine_type" {
-  description = "Machine type for the GPU node-pool"
   type        = string
+  description = "Machine type for the GPU node-pool"
   default     = "n1-standard-4"
 }
 
 variable "gke_gpu_type" {
-  description = "GPU accelerator to attach"
   type        = string
+  description = "GPU accelerator to attach"
   default     = "nvidia-tesla-t4"
 }
 
 variable "gke_gpu_max_nodes" {
-  description = "Maximum size for the GPU node-pool"
   type        = number
+  description = "Max nodes in GPU pool"
   default     = 1
 }
 
 variable "gke_gpu_zones" {
-  description = "Zone(s) to place GPU nodes in"
   type        = list(string)
+  description = "Zones to place GPU nodes in"
   default     = ["europe-west4-c"]
 }

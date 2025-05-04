@@ -44,3 +44,16 @@ variable "memory" {
   type        = string
   default     = "2Gi"
 }
+
+# Remote state reference
+variable "infra_state_bucket" {
+  description = "GCS bucket for infra state"
+  type        = string
+  default     = "mathgpt-tf-state"
+}
+
+variable "infra_state_prefix" {
+  description = "Prefix for infra state"
+  type        = string
+  default     = "terraform/state/infra"
+}
