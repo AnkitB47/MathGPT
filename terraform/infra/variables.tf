@@ -66,5 +66,5 @@ variable "gke_gpu_max_nodes" {
 variable "gke_gpu_zones" {
   description = "Zone(s) to place GPU nodes in"
   type        = list(string)
-  default     = ["europe-west4-a","europe-west4-b","europe-west4-c"]
+  default     = ["europe-west4-c"]
 }

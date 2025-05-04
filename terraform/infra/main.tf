@@ -96,17 +96,11 @@ resource "google_container_node_pool" "gpu_pool" {
 
     preemptible  = false
     disk_size_gb = 30
-    disk_type    = "pd-ssd"
+    disk_type    = "pd-balanced"
 
     metadata = {
       disable-legacy-endpoints = "true"
       install-nvidia-driver    = "true"
-    }
-
-    taint {
-      key    = "nvidia.com/gpu"
-      value  = "present"
-      effect = "NO_SCHEDULE"
     }
   }
 
