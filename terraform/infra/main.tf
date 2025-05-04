@@ -9,7 +9,6 @@ resource "google_container_cluster" "primary" {
   remove_default_node_pool = true
   initial_node_count       = 1
 
-  # Control-plane security
   enable_shielded_nodes       = true
   enable_intranode_visibility = true
   enable_l4_ilb_subsetting    = true
@@ -25,7 +24,6 @@ resource "google_container_cluster" "primary" {
   }
 }
 
-# CPU-only node pool
 resource "google_container_node_pool" "cpu_pool" {
   name       = "${var.gke_cluster_name}-cpu-pool"
   cluster    = google_container_cluster.primary.name
@@ -58,7 +56,6 @@ resource "google_container_node_pool" "cpu_pool" {
   }
 }
 
-# GPU-backed, spot node pool (T4)
 resource "google_container_node_pool" "gpu_pool" {
   name           = "${var.gke_cluster_name}-gpu-pool"
   cluster        = google_container_cluster.primary.name
@@ -92,11 +89,11 @@ resource "google_container_node_pool" "gpu_pool" {
       value  = "present"
       effect = "NO_SCHEDULE"
     }
+  }
 
-    scheduling {
-      preemptible        = true
-      provisioning_model = "SPOT"
-    }
+  scheduling {
+    preemptible        = true
+    provisioning_model = "SPOT"
   }
 
   autoscaling {
