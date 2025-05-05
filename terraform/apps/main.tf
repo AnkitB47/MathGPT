@@ -1,4 +1,6 @@
-# 0) Remote state for infra outputs
+// ───────────────────────────────────────────────────────────────────
+// 0) Remote state for infra outputs
+// ───────────────────────────────────────────────────────────────────
 data "terraform_remote_state" "infra" {
   backend = "gcs"
   config = {
@@ -7,7 +9,9 @@ data "terraform_remote_state" "infra" {
   }
 }
 
-# 1) Google provider
+// ───────────────────────────────────────────────────────────────────
+// 1) Google provider
+// ───────────────────────────────────────────────────────────────────
 provider "google" {
   project = var.project_id
   region  = var.region
@@ -15,13 +19,17 @@ provider "google" {
 
 data "google_client_config" "default" {}
 
-# 2) Deployer Service Account
+// ───────────────────────────────────────────────────────────────────
+// 2) Deployer Service Account
+// ───────────────────────────────────────────────────────────────────
 data "google_service_account" "deployer" {
   project    = var.project_id
   account_id = "mathsgpt-deployer"
 }
 
-# 3) Kubernetes provider
+// ───────────────────────────────────────────────────────────────────
+// 3) Kubernetes provider
+// ───────────────────────────────────────────────────────────────────
 provider "kubernetes" {
   host                   = "https://${data.terraform_remote_state.infra.outputs.cluster_endpoint}"
   cluster_ca_certificate = base64decode(data.terraform_remote_state.infra.outputs.cluster_ca_certificate)
@@ -43,7 +51,9 @@ provider "kubernetes" {
   }
 }
 
-# 4) Helm provider, reusing Kubernetes config
+// ───────────────────────────────────────────────────────────────────
+// 4) Helm provider
+// ───────────────────────────────────────────────────────────────────
 provider "helm" {
   kubernetes {
     host                   = "https://${data.terraform_remote_state.infra.outputs.cluster_endpoint}"
@@ -67,7 +77,9 @@ provider "helm" {
   }
 }
 
-# 5) IAM bindings for deployer SA
+// ───────────────────────────────────────────────────────────────────
+// 5) IAM bindings for deployer SA
+// ───────────────────────────────────────────────────────────────────
 resource "google_project_iam_member" "run_admin" {
   project = var.project_id
   role    = "roles/run.admin"
@@ -107,10 +119,12 @@ resource "google_project_iam_member" "storage_admin" {
 resource "google_storage_bucket_iam_member" "state_object_admin" {
   bucket = "mathgpt-tf-state"
   role   = "roles/storage.objectAdmin"
-  member = "serviceAccount:mathsgpt-deployer@mathgpt-458012.iam.gserviceaccount.com"
+  member = "serviceAccount:mathsgpt-deployer@${var.project_id}.iam.gserviceaccount.com"
 }
 
-# 6) CPU-based Cloud Run service
+// ───────────────────────────────────────────────────────────────────
+// 6) CPU-based Cloud Run service
+// ───────────────────────────────────────────────────────────────────
 resource "google_cloud_run_service" "cpu" {
   name     = var.service_name
   location = var.region
@@ -124,7 +138,7 @@ resource "google_cloud_run_service" "cpu" {
     spec {
       service_account_name = data.google_service_account.deployer.email
       containers {
-        image           = var.container_image_cpu
+        image = var.container_image_cpu
         ports {
           name           = "http1"
           container_port = 8501
@@ -158,39 +172,14 @@ resource "google_cloud_run_service_iam_member" "cpu_public" {
   member   = "allUsers"
 }
 
-# 7) Monitoring namespace & Helm charts
+// ───────────────────────────────────────────────────────────────────
+// 7) Monitoring namespace & Prometheus CRDs
+// ───────────────────────────────────────────────────────────────────
 resource "kubernetes_namespace" "monitoring" {
   metadata {
     name = "monitoring"
     labels = {
       "app.kubernetes.io/managed-by" = "terraform"
-    }
-  }
-}
-
-resource "kubernetes_manifest" "coding_assistant_svc" {
-  manifest = {
-    apiVersion = "v1"
-    kind       = "Service"
-    metadata = {
-      name      = "coding-assistant"
-      namespace = "gpu-assistant"
-      annotations = {
-        "cloud.google.com/load-balancer-type" = "External"
-      }
-    }
-    spec = {
-      type           = "LoadBalancer"
-      loadBalancerIP = var.coding_assistant_ip       # ← here
-      selector = {
-        app = "mathsgpt-gpu"
-      }
-      ports = [
-        {
-          port       = 80
-          targetPort = 8501
-        }
-      ]
     }
   }
 }
@@ -208,6 +197,55 @@ resource "helm_release" "prometheus_operator_crds" {
   timeout          = 600
 }
 
+// ───────────────────────────────────────────────────────────────────
+// 8) gpu-assistant namespace (so Service can be created)
+// ───────────────────────────────────────────────────────────────────
+resource "kubernetes_namespace" "gpu_assistant" {
+  metadata {
+    name = "gpu-assistant"
+    labels = {
+      "app.kubernetes.io/managed-by" = "terraform"
+    }
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────
+// 9) Service for the GPU assistant (in gpu-assistant ns)
+// ───────────────────────────────────────────────────────────────────
+resource "kubernetes_manifest" "coding_assistant_svc" {
+  depends_on = [
+    kubernetes_namespace.gpu_assistant
+  ]
+
+  manifest = {
+    apiVersion = "v1"
+    kind       = "Service"
+    metadata = {
+      name      = "coding-assistant"
+      namespace = kubernetes_namespace.gpu_assistant.metadata[0].name
+      annotations = {
+        "cloud.google.com/load-balancer-type" = "External"
+      }
+    }
+    spec = {
+      type           = "LoadBalancer"
+      loadBalancerIP = var.coding_assistant_ip
+      selector = {
+        app = "mathsgpt-gpu"
+      }
+      ports = [
+        {
+          port       = 80
+          targetPort = 8501
+        }
+      ]
+    }
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────
+// 10) Main Prometheus stack
+// ───────────────────────────────────────────────────────────────────
 resource "helm_release" "prom_stack" {
   depends_on       = [ helm_release.prometheus_operator_crds ]
   name             = "kube-prometheus-stack"
