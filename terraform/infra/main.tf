@@ -25,7 +25,7 @@ resource "google_container_cluster" "primary" {
 }
 
 resource "google_container_node_pool" "cpu_pool" {
-  count      = var.cluster_exists ? 0 : 1
+
   name       = "${var.gke_cluster_name}-cpu-pool"
   cluster    = google_container_cluster.primary.name
   location   = var.region
@@ -60,7 +60,7 @@ resource "google_container_node_pool" "cpu_pool" {
 }
 
 resource "google_container_node_pool" "gpu_pool" {
-  count          = var.cluster_exists ? 0 : 1
+
   name           = "${var.gke_cluster_name}-gpu-pool"
   cluster        = google_container_cluster.primary.name
   location       = var.region
