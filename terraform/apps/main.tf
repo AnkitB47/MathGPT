@@ -104,6 +104,12 @@ resource "google_project_iam_member" "storage_admin" {
   member  = "serviceAccount:${data.google_service_account.deployer.email}"
 }
 
+resource "google_storage_bucket_iam_member" "state_object_admin" {
+  bucket = "mathgpt-tf-state"
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:mathsgpt-deployer@mathgpt-458012.iam.gserviceaccount.com"
+}
+
 # 6) CPU-based Cloud Run service
 resource "google_cloud_run_service" "cpu" {
   name     = var.service_name
