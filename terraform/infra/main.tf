@@ -66,7 +66,7 @@ resource "google_container_node_pool" "gpu_pool" {
   node_config {
     machine_type = var.gke_gpu_machine_type
     preemptible  = true
-    disk_size_gb = 30
+    disk_size_gb = 100
     disk_type    = "pd-balanced"
 
     guest_accelerator {
