@@ -48,7 +48,8 @@ jobs:
                --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
             echo "→ Deleting existing cluster ${CLUSTER_NAME}…"
             gcloud container clusters delete "$CLUSTER_NAME" \
-              --region="$REGION" --project="$PROJECT_ID" --quiet
+             --region="$REGION" --project="$PROJECT_ID" --quiet \
+             || echo "⚠️ Cluster delete failed (it may be CREATING/DELETING). Continuing anyway."
           else
             echo "→ No cluster named ${CLUSTER_NAME}, skipping delete."
           fi
