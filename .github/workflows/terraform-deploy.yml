@@ -38,8 +38,8 @@ jobs:
       # Clean up any stale Terraform locks
       - name: Remove stale TF lock files
         run: |
-          gsutil -q rm "gs://${{ secrets.GCP_STATE_BUCKET }}/terraform/state/infra/default.tflock" || true
-          gsutil -q rm "gs://${{ secrets.GCP_STATE_BUCKET }}/terraform/state/apps/default.tflock"   || true
+          gsutil -q rm "gs://${{ secrets.GCP_TF_STATE_BUCKET }}/terraform/state/infra/default.tflock" || true
+          gsutil -q rm "gs://${{ secrets.GCP_TF_STATE_BUCKET }}/terraform/state/apps/default.tflock"   || true
 
 
       - name: Ensure no pre-existing cluster
