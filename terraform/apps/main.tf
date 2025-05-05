@@ -168,6 +168,33 @@ resource "kubernetes_namespace" "monitoring" {
   }
 }
 
+resource "kubernetes_manifest" "coding_assistant_svc" {
+  manifest = {
+    apiVersion = "v1"
+    kind       = "Service"
+    metadata = {
+      name      = "coding-assistant"
+      namespace = "gpu-assistant"
+      annotations = {
+        "cloud.google.com/load-balancer-type" = "External"
+      }
+    }
+    spec = {
+      type           = "LoadBalancer"
+      loadBalancerIP = var.coding_assistant_ip       # ← here
+      selector = {
+        app = "mathsgpt-gpu"
+      }
+      ports = [
+        {
+          port       = 80
+          targetPort = 8501
+        }
+      ]
+    }
+  }
+}
+
 resource "helm_release" "prometheus_operator_crds" {
   depends_on       = [ kubernetes_namespace.monitoring ]
   name             = "prometheus-operator-crds"

@@ -45,6 +45,11 @@ variable "memory" {
   default     = "2Gi"
 }
 
+variable "coding_assistant_ip" {
+  description = "Static IP for the GPU assistant LoadBalancer"
+  type        = string
+}
+
 # Remote state reference
 variable "infra_state_bucket" {
   description = "GCS bucket for infra state"

@@ -7,10 +7,10 @@ metadata:
   annotations:
     cloud.google.com/load-balancer-type: "External"
 spec:
+  type: LoadBalancer
+  loadBalancerIP: 34.91.192.103        
   selector:
     app: mathsgpt-gpu
   ports:
-    - protocol: TCP
-      port: 80
+    - port: 80
       targetPort: 8501
-  type: LoadBalancer
