@@ -3,6 +3,11 @@ provider "google" {
   region  = var.region
 }
 
+resource "google_compute_address" "coding_assistant_ip" {
+  name   = "coding-assistant-ip"
+  region = var.region
+}
+
 resource "google_container_cluster" "primary" {
   name                     = var.gke_cluster_name
   location                 = var.region
@@ -57,11 +62,6 @@ resource "google_container_node_pool" "cpu_pool" {
     create = "15m"
     delete = "10m"
   }
-}
-
-resource "google_compute_address" "coding_assistant_ip" {
-  name   = "coding-assistant-ip"
-  region = var.region
 }
 
 resource "google_container_node_pool" "gpu_pool" {

@@ -66,6 +66,13 @@ jobs:
             -backend-config="bucket=${STATE_BUCKET}" \
             -backend-config="prefix=terraform/state/infra"
 
+      - name: Terraform Import static IP
+        working-directory: terraform/infra
+        run: |
+          terraform import \
+            google_compute_address.coding_assistant_ip \
+            projects/${{ secrets.GCP_PROJECT_ID }}/regions/${{ secrets.GCP_REGION }}/addresses/coding-assistant-ip || true
+
       - name: Terraform Apply (infra)
         working-directory: terraform/infra
         run: |
