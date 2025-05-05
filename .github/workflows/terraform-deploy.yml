@@ -39,8 +39,9 @@ jobs:
 
       - name: Remove stale Terraform lock files
         run: |
-          gsutil -q rm "gs://${STATE_BUCKET}/terraform/state/infra/default.tflock" || true
-          gsutil -q rm "gs://${STATE_BUCKET}/terraform/state/apps/default.tflock"  || true
+          gcloud storage rm --quiet "gs://${STATE_BUCKET}/terraform/state/infra/default.tflock" || true
+          gcloud storage rm --quiet "gs://${STATE_BUCKET}/terraform/state/apps/default.tflock"   || true
+
 
       - name: Ensure no pre-existing cluster
         run: |

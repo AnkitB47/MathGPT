@@ -113,8 +113,8 @@ fi
 # 7) Clear Terraform locks & local caches
 # ─────────────────────────────────────────────────────────────────────────────
 echo "🗑️ Clearing Terraform locks…"
-gsutil -q rm "gs://${GCP_STATE_BUCKET}/terraform/state/infra/default.tflock" || true
-gsutil -q rm "gs://${GCP_STATE_BUCKET}/terraform/state/apps/default.tflock"  || true
+gcloud storage rm --quiet "gs://${GCP_STATE_BUCKET}/terraform/state/infra/default.tflock" || true
+gcloud storage rm --quiet "gs://${GCP_STATE_BUCKET}/terraform/state/apps/default.tflock"   || true
 
 echo "🧹 Cleaning local Terraform…"
 find terraform/infra terraform/apps -maxdepth 1 -type d -name ".terraform*" -exec rm -rf {} +
