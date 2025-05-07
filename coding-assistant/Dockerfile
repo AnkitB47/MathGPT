@@ -2,42 +2,48 @@
 FROM python:3.10-slim AS builder
 WORKDIR /app
 
-ENV PIP_NO_CACHE_DIR=1 PIP_DEFAULT_TIMEOUT=1000
-
-# build-time deps
+# build-time dependencies
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      python3-venv python3-pip build-essential ca-certificates \
+      python3-venv build-essential ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# create & populate venv
-RUN python3 -m venv /venv \
+# create & populate a self-contained venv
+RUN python3 -m venv /venv --copies \
  && /venv/bin/pip install --upgrade pip
 
 COPY requirements.txt .
-# install torch+cpu fallback to GPU wheels
+# install CUDA-compatible PyTorch and your other Python deps
 RUN /venv/bin/pip install \
       torch torchvision torchaudio \
-      --index-url https://download.pytorch.org/whl/cu118 --no-cache-dir \
- && /venv/bin/pip install -r requirements.txt --no-cache-dir
+      --index-url https://download.pytorch.org/whl/cu118 \
+ && /venv/bin/pip install -r requirements.txt
 
 # ── STAGE 2: runtime with CUDA libs ───────────────────────────────────
 FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
+
+# ensure a fallback system Python exists in case any scripts still require it
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      python3 ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# copy venv
+# copy the fully self-contained venv from builder
 COPY --from=builder /venv /venv
 
-# copy just your app & adapters
-COPY app.py coding_agent.py ./
-
-# bake in your fine-tuned QLoRA adapters:
+# copy your application code and any adapters
+COPY app.py coding_agent.py ./  
 COPY output/qlora-deepseek/adapters /app/output/qlora-deepseek/adapters
 
-ENV PATH="/venv/bin:$PATH" \
+# so that "/venv/bin/streamlit" and "/venv/bin/python3" are on PATH
+ENV PATH="/venv/bin:${PATH}" \
     HF_HOME=/app/hf_cache \
     TRANSFORMERS_CACHE=/app/cache \
     PYTHONUNBUFFERED=1
 
 EXPOSE 8501
-CMD ["streamlit","run","app.py","--server.port=8501","--server.address=0.0.0.0"]
+
+# launch your Streamlit app
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]

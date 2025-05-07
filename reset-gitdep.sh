@@ -83,14 +83,20 @@ fi
 # ─────────────────────────────────────────────────────────────────────────────
 echo "🔐 Granting IAM roles to $SA_EMAIL"
 for ROLE in \
-    roles/container.admin \
-    roles/compute.instanceAdmin.v1 \
-    roles/iam.serviceAccountUser \
-    roles/run.admin \
-    roles/run.invoker \
-    roles/storage.admin; do
+  roles/container.admin \               # full GKE control (create/delete clusters, node-pools, etc)  
+  roles/container.clusterViewer \       # allow gcloud get-credentials  
+  roles/container.clusterAdmin \        # if Terraform ever needs to upgrade or delete the cluster itself  
+  roles/compute.instanceAdmin.v1 \      # create/delete VMs (node pools)  
+  roles/iam.serviceAccountUser \        # “impersonate” other SAs  
+  roles/run.admin \                     # Cloud Run: create/update services  
+  roles/run.invoker \                   # Cloud Run: invoke permissions  
+  roles/storage.admin \                 # create/delete buckets, set ACLs  
+  roles/storage.objectAdmin \           # full object-level control (lock files, state)  
+; do
   gcloud projects add-iam-policy-binding "$GCP_PROJECT_ID" \
-    --member="serviceAccount:${SA_EMAIL}" --role="$ROLE" --quiet || true
+    --member="serviceAccount:${SA_EMAIL}" \
+    --role="$ROLE" \
+    --quiet || true
 done
 
 # ─────────────────────────────────────────────────────────────────────────────
