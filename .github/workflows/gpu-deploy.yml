@@ -1,4 +1,3 @@
-# .github/workflows/deploy-gpu.yml
 name: 🖥️ Deploy GPU Assistant
 
 on:
@@ -52,7 +51,8 @@ jobs:
       - name: Create namespace
         run: |
           kubectl create namespace ${{ env.NAMESPACE }} \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml \
+          | kubectl apply -f -
 
       - name: Ensure ServiceAccount exists
         run: |
@@ -64,9 +64,16 @@ jobs:
             namespace: ${{ env.NAMESPACE }}
           EOF
 
+      - name: Create Hugging Face token Secret
+        run: |
+          kubectl create secret generic hf-token \
+            --from-literal=HF_TOKEN="${{ secrets.HF_TOKEN }}" \
+            -n ${{ env.NAMESPACE }} \
+            --dry-run=client -o yaml \
+          | kubectl apply -f -
+
       - name: Deploy GPU workloads
         run: |
-          # apply Deployment and Service
           kubectl apply -n ${{ env.NAMESPACE }} \
             -f coding-assistant/kubernetes/deployment.yaml \
             -f coding-assistant/kubernetes/service.yaml
