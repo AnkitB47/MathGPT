@@ -3,10 +3,16 @@ kind: Deployment
 metadata:
   name: coding-assistant
   namespace: gpu-assistant
-  labels:
-    app: mathsgpt-gpu
 spec:
   replicas: 1
+  revisionHistoryLimit: 3
+
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge:       0
+
   selector:
     matchLabels:
       app: mathsgpt-gpu
@@ -28,19 +34,18 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8501
+          resources:
+            requests:
+              cpu:      "2"
+              memory:   "4Gi"
+              nvidia.com/gpu: 1
+            limits:
+              cpu:      "4"
+              memory:   "8Gi"
+              nvidia.com/gpu: 1
           env:
-            # ← add this block
             - name: HF_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: hf-token
-                  key: HF_TOKEN
-          resources:
-            requests:
-              cpu: "2"
-              memory: "4Gi"
-              nvidia.com/gpu: 1
-            limits:
-              cpu: "4"
-              memory: "8Gi"
-              nvidia.com/gpu: 1
+                  key:  HF_TOKEN
