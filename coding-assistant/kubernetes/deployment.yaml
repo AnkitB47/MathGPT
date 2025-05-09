@@ -10,8 +10,10 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 1
-      maxSurge:       0
+    # kill one old pod first (so you never end up waiting on a stuck replica)
+    maxUnavailable: 1
+    # don’t create an extra surge pod
+    maxSurge:       0
 
   selector:
     matchLabels:
