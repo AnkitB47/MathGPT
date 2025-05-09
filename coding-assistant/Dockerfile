@@ -1,49 +1,45 @@
-# ── STAGE 1: build venv & deps ────────────────────────────────────────
-FROM python:3.10-slim AS builder
-WORKDIR /app
+# ── ALL IN ONE: CUDA + Python + venv + RETRYABLE PIP ─────────────────
+FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
 
-# build-time dependencies
+# 1) Install Python3.10, venv support, build tools, certs
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      python3-venv build-essential ca-certificates \
+      python3.10 python3.10-venv python3-pip \
+      build-essential ca-certificates \
+ && ln -sf /usr/bin/python3.10 /usr/bin/python3 \
  && rm -rf /var/lib/apt/lists/*
 
-# create & populate a self-contained venv
+# 2) Create & activate a venv at /venv
 RUN python3 -m venv /venv --copies \
  && /venv/bin/pip install --upgrade pip
 
-COPY requirements.txt .
-# install CUDA-compatible PyTorch and your other Python deps
-RUN /venv/bin/pip install \
-      torch torchvision torchaudio \
-      --index-url https://download.pytorch.org/whl/cu118 \
- && /venv/bin/pip install -r requirements.txt
-
-# ── STAGE 2: runtime with CUDA libs ───────────────────────────────────
-FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
-
-# ensure a fallback system Python exists in case any scripts still require it
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-      python3 ca-certificates \
- && rm -rf /var/lib/apt/lists/*
+# 3) Make sure pip is non-interactive, doesn’t cache, and will retry
+ENV PATH="/venv/bin:${PATH}" \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DEFAULT_TIMEOUT=120 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 
-# copy the fully self-contained venv from builder
-COPY --from=builder /venv /venv
+# 4) Copy requirements and install them, with extra retries
+COPY requirements.txt .
+RUN pip install \
+      --retries 10 \
+      --timeout 120 \
+      --no-cache-dir \
+      torch torchvision torchaudio \
+        --index-url https://download.pytorch.org/whl/cu118
 
-# copy your application code and any adapters
-COPY app.py coding_agent.py ./  
+RUN pip install \
+      --retries 10 \
+      --timeout 120 \
+      --no-cache-dir \
+      -r requirements.txt
+
+# 5) Copy your code & adapters
+COPY app.py coding_agent.py ./
 COPY output/qlora-deepseek/adapters /app/output/qlora-deepseek/adapters
 
-# so that "/venv/bin/streamlit" and "/venv/bin/python3" are on PATH
-ENV PATH="/venv/bin:${PATH}" \
-    HF_HOME=/app/hf_cache \
-    TRANSFORMERS_CACHE=/app/cache \
-    PYTHONUNBUFFERED=1
-
+# 6) Expose and run
 EXPOSE 8501
-
-# launch your Streamlit app
 CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
