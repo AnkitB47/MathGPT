@@ -1,11 +1,16 @@
 # ── ALL IN ONE: CUDA + Python + venv + RETRYABLE PIP ─────────────────
 FROM nvidia/cuda:11.8.0-runtime-ubuntu22.04
 
-# 1) Install Python3.10, venv support, build tools, certs
+# 1) Install Python3.10, venv, dev headers, pip, build tools, certs
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
-      python3.10 python3.10-venv python3-pip \
-      build-essential ca-certificates \
+      python3.10 \
+      python3.10-venv \
+      python3.10-dev \
+      python3-distutils \
+      python3-pip \
+      build-essential \
+      ca-certificates \
  && ln -sf /usr/bin/python3.10 /usr/bin/python3 \
  && rm -rf /var/lib/apt/lists/*
 
@@ -13,7 +18,7 @@ RUN apt-get update \
 RUN python3 -m venv /venv --copies \
  && /venv/bin/pip install --upgrade pip
 
-# 3) Make sure pip is non-interactive, doesn’t cache, and will retry
+# 3) Make pip fast & retry on failures
 ENV PATH="/venv/bin:${PATH}" \
     PIP_NO_CACHE_DIR=1 \
     PIP_DEFAULT_TIMEOUT=120 \
@@ -21,7 +26,7 @@ ENV PATH="/venv/bin:${PATH}" \
 
 WORKDIR /app
 
-# 4) Copy requirements and install them, with extra retries
+# 4) Install CUDA-compatible PyTorch first, then your other deps
 COPY requirements.txt .
 RUN pip install \
       --retries 10 \
@@ -40,6 +45,6 @@ RUN pip install \
 COPY app.py coding_agent.py ./
 COPY output/qlora-deepseek/adapters /app/output/qlora-deepseek/adapters
 
-# 6) Expose and run
+# 6) Expose port & launch
 EXPOSE 8501
 CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
