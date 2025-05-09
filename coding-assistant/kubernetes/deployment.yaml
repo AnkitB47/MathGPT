@@ -7,9 +7,6 @@ metadata:
     app: mathsgpt-gpu
 spec:
   replicas: 1
-  revisionHistoryLimit: 3
-  strategy:
-    type: Recreate  # Kill old Pod before creating new one, freeing the GPU
   selector:
     matchLabels:
       app: mathsgpt-gpu
@@ -23,17 +20,21 @@ spec:
         - key: "nvidia.com/gpu"
           operator: "Exists"
           effect: "NoSchedule"
-        - key: "node.kubernetes.io/disk-pressure"
-          operator: "Exists"
-          effect: "NoSchedule"
       nodeSelector:
         cloud.google.com/gke-nodepool: "mathsgpt-gpu-cluster-gpu-pool"
       containers:
         - name: coding-assistant
-          image: docker.io/ankitb47/maths-gpt:gpu_v2
+          image: docker.io/ankitb47/maths-gpt:gpu_v1
           imagePullPolicy: Always
           ports:
             - containerPort: 8501
+          env:
+            # ← add this block
+            - name: HF_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hf-token
+                  key: HF_TOKEN
           resources:
             requests:
               cpu: "2"
@@ -43,6 +44,3 @@ spec:
               cpu: "4"
               memory: "8Gi"
               nvidia.com/gpu: 1
-          env:
-            - name: PORT
-              value: "8501"
