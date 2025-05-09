@@ -3,6 +3,8 @@ kind: Deployment
 metadata:
   name: coding-assistant
   namespace: gpu-assistant
+  labels:
+    app: mathsgpt-gpu
 spec:
   replicas: 1
   revisionHistoryLimit: 3
@@ -10,14 +12,13 @@ spec:
   strategy:
     type: RollingUpdate
     rollingUpdate:
-    # kill one old pod first (so you never end up waiting on a stuck replica)
-    maxUnavailable: 1
-    # don’t create an extra surge pod
-    maxSurge:       0
+      maxUnavailable: 1
+      maxSurge:       0
 
   selector:
     matchLabels:
       app: mathsgpt-gpu
+
   template:
     metadata:
       labels:
@@ -25,9 +26,9 @@ spec:
     spec:
       serviceAccountName: mathsgpt-deployer
       tolerations:
-        - key: "nvidia.com/gpu"
+        - key:    "nvidia.com/gpu"
           operator: "Exists"
-          effect: "NoSchedule"
+          effect:   "NoSchedule"
       nodeSelector:
         cloud.google.com/gke-nodepool: "mathsgpt-gpu-cluster-gpu-pool"
       containers:
@@ -36,18 +37,18 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8501
-          resources:
-            requests:
-              cpu:      "2"
-              memory:   "4Gi"
-              nvidia.com/gpu: 1
-            limits:
-              cpu:      "4"
-              memory:   "8Gi"
-              nvidia.com/gpu: 1
           env:
             - name: HF_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: hf-token
                   key:  HF_TOKEN
+          resources:
+            requests:
+              cpu:             "2"
+              memory:          "4Gi"
+              nvidia.com/gpu:  1
+            limits:
+              cpu:             "4"
+              memory:          "8Gi"
+              nvidia.com/gpu:  1
