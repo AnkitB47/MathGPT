@@ -33,7 +33,7 @@ spec:
         cloud.google.com/gke-nodepool: "mathsgpt-gpu-cluster-gpu-pool"
       containers:
         - name: coding-assistant
-          image: docker.io/ankitb47/maths-gpt:gpu_v1
+          image: docker.io/ankitb47/maths-gpt:gpu_v2
           imagePullPolicy: Always
           ports:
             - containerPort: 8501
