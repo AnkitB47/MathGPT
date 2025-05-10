@@ -5,8 +5,6 @@
 
 ---
 
-![MathGPT demo](assets/images/01-welcome.png)
-
 ## 📋 Table of Contents
 
 1. [Project Overview](#project-overview)
@@ -67,25 +65,25 @@ MathGPT is the **ultimate** multi-agent platform combining:
 
 ```mermaid
 flowchart LR
-  subgraph General Assistant
-    A[Streamlit UI] --> B[LangChain Agent]
-    B --> C[Groq API (Gemma, DeepSeek-R1)]
-    B --> D[Sympy Calculator]
-    B --> E[Wikipedia API]
+  subgraph General_Assistant
+    UI1["Streamlit UI"] --> Agent1["LangChain Agent"]
+    Agent1 --> Groq["Groq API (Gemma, Llama, DeepSeek-R1)"]
+    Agent1 --> Sympy["Sympy Calculator"]
+    Agent1 --> Wiki["Wikipedia API"]
   end
 
-  subgraph Coding Assistant
-    A2[Streamlit UI] --> F[Base LLM: deepseek-ai/deepseek-coder-1.3b-instruct]
-    F --> G[LoRA Adapter (QLoRA)]
-    G --> H[GPU Nodes (GKE)]
+  subgraph Coding_Assistant
+    UI2["Streamlit UI"] --> Base["Base LLM"]
+    Base --> Adapter["QLoRA Adapter"]
+    Adapter --> GPU["GPU Nodes on GKE"]
   end
 
   subgraph Infra
-    I[Terraform] --> J[GCP Project]
-    J --> K[GKE Cluster + GPU Pool]
-    J --> L[Cloud Load Balancer]
-    CI[GitHub Actions] --> K
+    Terraform --> GCP["GCP Project"]
+    GCP --> GKE["GKE Cluster + GPU Pool"]
+    CI["GitHub Actions"] --> GKE
   end
+
 Languages: Python 3.10, Bash, YAML, Terraform HCL
 
 Frameworks: Streamlit, Transformers, PEFT, LangChain, Groq-Python SDK
