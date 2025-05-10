@@ -67,7 +67,7 @@ MathGPT is the **ultimate** multi-agent platform combining:
 flowchart LR
   subgraph General_Assistant
     UI1["Streamlit UI"] --> Agent1["LangChain Agent"]
-    Agent1 --> Groq["Groq API (Gemma, Llama, DeepSeek-R1)"]
+    Agent1 --> Groq["Groq API\n(Gemma, DeepSeek-R1)"]
     Agent1 --> Sympy["Sympy Calculator"]
     Agent1 --> Wiki["Wikipedia API"]
   end
@@ -78,10 +78,11 @@ flowchart LR
     Adapter --> GPU["GPU Nodes on GKE"]
   end
 
-  subgraph Infra
+  subgraph Infrastructure
     Terraform --> GCP["GCP Project"]
     GCP --> GKE["GKE Cluster + GPU Pool"]
     CI["GitHub Actions"] --> GKE
+    GKE --> Stack["Languages:\n• Python 3.10\n• Bash\n• YAML\n• Docker\n• Terraform"]
   end
 
 Languages: Python 3.10, Bash, YAML, Terraform HCL
