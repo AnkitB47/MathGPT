@@ -5,7 +5,7 @@
 
 ---
 
-![MathGPT demo](assets/images/01-welcome.png)
+![MathGPT demo](docs/assets/images/01-welcome.png)
 
 ---
 
